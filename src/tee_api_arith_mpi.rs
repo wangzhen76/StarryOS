@@ -253,20 +253,24 @@ const TEE_ERROR_OVERFLOW: TeeResult = 1;
 /// - len: 以 u32 为单位的长度
 #[allow(non_camel_case_types,non_snake_case)]
 pub unsafe fn TEE_BigIntInit(big_int: *mut TEE_BigInt, len: usize) {
-    unsafe {
-        // 检查长度是否超过限制
-        if len > CFG_TA_BIGNUM_MAX_BITS / 4 {
-            // PANIC 处理
-            panic!("Too large bigint");
-        }
+    // 检查长度是否超过限制（安全代码）
+    if len > CFG_TA_BIGNUM_MAX_BITS / 4 {
+        // PANIC 处理
+        panic!("Too large bigint");
+    }
 
+    // 计算头部信息（安全代码）
+    let alloc_size = (len - BIGINT_HDR_SIZE_IN_U32) as u16;
+
+    // 内存操作（必须使用 unsafe）
+    unsafe {
         // 将整个区域清零（使用字节而不是 u32）
         core::ptr::write_bytes(big_int as *mut u8, 0, len * 4);
 
         // 设置头部信息
         let hdr = big_int as *mut BigintHdr;
         (*hdr).sign = 1;  // 设置符号位为正数(1表示正数)
-        (*hdr).alloc_size = (len - BIGINT_HDR_SIZE_IN_U32) as u16;
+        (*hdr).alloc_size = alloc_size;
         (*hdr).nblimbs = 0;  // 初始时没有有效数据
     }
 }
