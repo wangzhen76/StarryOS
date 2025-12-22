@@ -714,7 +714,7 @@ fn test_tee_bigint_fmm_functions() {
         TEE_BigIntInitFMM(fmm, 10);
         TEE_BigIntInit(bigint, 10);
         TEE_BigIntInit(modulus, 10);
-        TEE_BigIntInitFMMContext(context, 10, modulus);
+        TEE_BigIntInitFMMContext1(context, 10, modulus);
         
         // Test size functions
         assert!(TEE_BigIntFMMSizeInU32(256) > 0);
