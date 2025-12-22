@@ -1,4 +1,11 @@
-/// wangzhen add 
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2025 KylinSoft Co., Ltd. <https://www.kylinos.cn/>
+// See LICENSES for license details.
+//
+// This file has been modified by KylinSoft on 2025.
+
+// TEE Internal Core API Specification – Public Release v1.3.1
+// 8 TEE Arithmetical API
 
 use std::ops::ShrAssign;
 use mbedtls::bignum::Mpi;
@@ -24,7 +31,6 @@ pub trait TeeBigIntExt {
 impl TeeBigIntExt for Mpi {
     /// 将 Mpi 对象复制到 TEE_BigInt 结构中
     /// 
-    /// 这个函数模拟了原始 C 代码的功能，将 Mpi 数据复制到 TEE_BigInt 结构中
     /// 注意：mbedtls 使用 64-bit limbs，而 TEE_BigInt 使用 32-bit limbs
     unsafe fn to_teebigint(&self, bigint: *mut TEE_BigInt, alloc_size: usize) -> Result<(), Error> {
         unsafe {
@@ -105,7 +111,7 @@ impl TeeBigIntExt for Mpi {
     
     /// 从 TEE_BigInt 结构体创建 Mpi 对象
     /// 
-    /// 这个函数模拟了原始 C 代码的功能，从 TEE_BigInt 提取数据并初始化 Mpi
+    /// 从 TEE_BigInt 提取数据并初始化 Mpi
     unsafe fn from_teebigint(bigint: *const TEE_BigInt) -> Result<Self, Error> {
         unsafe {
             if bigint.is_null() {
@@ -155,7 +161,7 @@ impl TeeBigIntExt for Mpi {
             }
         }
 
-        // 去除尾部的零值 limbs（相当于原始代码中的 while 循环）
+        // 去除尾部的零值 limbs
         let trimmed_data = {
             let mut len = data_vec.len();
             while len > 0 && data_vec[len - 1] == 0 {
@@ -237,18 +243,6 @@ const TEE_SUCCESS: TeeResult = 0;
 const TEE_ERROR_OVERFLOW: TeeResult = 1;
 //const TEE_ERROR_SHORT_BUFFER: TeeResult = 2;
 
-// macro_rules! TEE_BigIntSizeInU32 {
-//     ($n:expr) => {
-//         (($n + 31) / 32) + 2
-//     };
-// }
-
-// typedef struct mbedtls_mpi {
-//     int s;
-//     size_t n;
-//     mbedtls_mpi_uint *p;
-// }mbedtls_mpi;
-
 
 /// 初始化一个 TEE_BigInt 对象
 /// 
@@ -275,18 +269,6 @@ pub unsafe fn TEE_BigIntInit(big_int: *mut TEE_BigInt, len: usize) {
     }
 }
 
-/// GP 1.1 兼容版本的 TEE_BigIntInit 函数
-/// 
-/// 参数:
-/// - big_int: 指向 TEE_BigInt 的指针
-/// - len: 以 u32 为单位的长度 (uint32_t 类型)
-#[allow(non_camel_case_types,non_snake_case)]
-pub unsafe fn __GP11_TEE_BigIntInit(big_int: *mut TEE_BigInt, len: u32) {
-    // 直接调用标准的 TEE_BigIntInit 函数
-    unsafe {
-        TEE_BigIntInit(big_int, len as usize);
-    }
-}
 
 /// 将八进制字符串转换为 TEE_BigInt
 /// 
@@ -346,26 +328,7 @@ pub fn TEE_BigIntConvertFromOctetString(
     }
 }
 
-/// GP 1.1 兼容版本的 TEE_BigIntConvertFromOctetString 函数
-/// 
-/// 参数:
-/// - dest: 目标 TEE_BigInt 指针
-/// - buffer: 源数据缓冲区指针
-/// - buffer_len: 缓冲区长度 (uint32_t 类型)
-/// - sign: 符号值
-/// 
-/// 返回值:
-/// - TeeResult: 转换结果
-#[allow(non_camel_case_types,non_snake_case)]
-pub fn __GP11_TEE_BigIntConvertFromOctetString(
-    dest: *mut TEE_BigInt,
-    buffer: *const u8,
-    buffer_len: u32,
-    sign: i32,
-) -> TeeResult {
-    // 直接调用标准的 TEE_BigIntConvertFromOctetString 函数
-    TEE_BigIntConvertFromOctetString(dest, buffer, buffer_len as usize, sign)
-}
+
 
 /// 将 TEE_BigInt 转换为八进制字符串（字节数组）
 /// 
@@ -431,37 +394,7 @@ pub fn TEE_BigIntConvertToOctetString(
     TEE_SUCCESS
 }
 
-/// GP 1.1 兼容版本的 TEE_BigIntConvertToOctetString 函数
-/// 
-/// 参数:
-/// - buffer: 目标缓冲区指针
-/// - buffer_len: 缓冲区长度的指针（uint32_t 类型）
-/// - big_int: 源 TEE_BigInt 指针
-/// 
-/// 返回值:
-/// - TeeResult: 转换结果
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn __GP11_TEE_BigIntConvertToOctetString(
-    buffer: *mut u8,
-    buffer_len: *mut u32,
-    big_int: *const TEE_BigInt,
-) -> TeeResult {
-    // 检查输入参数
-    if buffer_len.is_null() {
-        return TEE_ERROR_OVERFLOW;
-    }
-    
-    // 将 u32 长度转换为 usize
-    let mut l = unsafe { *buffer_len } as usize;
-    
-    // 调用标准的 TEE_BigIntConvertToOctetString 函数
-    let res = TEE_BigIntConvertToOctetString(buffer, &mut l, big_int);
-    
-    // 更新长度值（从 usize 转换回 u32）
-    unsafe { *buffer_len = l as u32 };
-    
-    res
-}
+
 
 /// 将 32 位有符号整数转换为 TEE_BigInt
 /// 
@@ -670,21 +603,7 @@ pub fn TEE_BigIntShiftRight(dest: *mut TEE_BigInt, op: *const TEE_BigInt, bits: 
     }
 }
 
-/// GP 1.1 兼容版本的 TEE_BigIntShiftRight 函数
-/// 
-/// 参数:
-/// - dest: 目标 TEE_BigInt 指针
-/// - op: 源 TEE_BigInt 指针
-/// - bits: 要右移的位数 (uint32_t 类型)
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn __GP11_TEE_BigIntShiftRight(
-    dest: *mut TEE_BigInt,
-    op: *const TEE_BigInt,
-    bits: u32,
-) {
-    // 直接调用标准的 TEE_BigIntShiftRight 函数
-    TEE_BigIntShiftRight(dest, op, bits as usize);
-}
+
 
 /// 获取 TEE_BigInt 中指定位置的位值
 /// 
@@ -1972,53 +1891,6 @@ pub unsafe fn TEE_BigIntInitFMM(big_int_fmm: *mut TEE_BigIntFMM, len: usize) {
     }
 }
 
-/// GP 1.1 兼容版本的 TEE_BigIntInitFMM 函数
-/// 
-/// 参数:
-/// - big_int_fmm: 指向 TEE_BigIntFMM 的指针
-/// - len: 以 u32 为单位的长度 (uint32_t 类型)
-#[allow(non_camel_case_types, non_snake_case)]
-pub unsafe fn __GP11_TEE_BigIntInitFMM(big_int_fmm: *mut TEE_BigIntFMM, len: u32) {
-    unsafe {
-        TEE_BigIntInitFMM(big_int_fmm, len as usize);
-    }
-}
-
-/// 初始化一个 TEE_BigIntFMMContext 对象
-/// 
-/// 参数:
-/// - context: 指向 TEE_BigIntFMMContext 的指针
-/// - len: 以 u32 为单位的长度
-/// - modulus: 模数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub unsafe fn TEE_BigIntInitFMMContext(
-    context: *mut TEE_BigIntFMMContext,
-    len: usize,
-    modulus: *const TEE_BigInt,
-) {
-    // 根据原始C代码，这个函数体为空，仅保留参数签名
-    let _ = context;
-    let _ = len;
-    let _ = modulus;
-}
-
-/// GP 1.1 兼容版本的 TEE_BigIntInitFMMContext 函数
-/// 
-/// 参数:
-/// - context: 指向 TEE_BigIntFMMContext 的指针
-/// - len: 以 u32 为单位的长度 (uint32_t 类型)
-/// - modulus: 模数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub unsafe fn __GP11_TEE_BigIntInitFMMContext(
-    context: *mut TEE_BigIntFMMContext,
-    len: u32,
-    modulus: *const TEE_BigInt,
-) {
-    unsafe {
-        TEE_BigIntInitFMMContext(context, len as usize, modulus);
-    }
-}
-
 /// 初始化一个 TEE_BigIntFMMContext 对象 (带返回值版本)
 /// 
 /// 参数:
@@ -2034,7 +1906,7 @@ pub unsafe fn TEE_BigIntInitFMMContext1(
     len: usize,
     modulus: *const TEE_BigInt,
 ) -> TeeResult {
-    // 根据原始C代码，这个函数体为空，仅保留参数签名并返回成功
+    // 仅保留参数签名并返回成功
     let _ = context;
     let _ = len;
     let _ = modulus;
@@ -2054,17 +1926,6 @@ pub fn TEE_BigIntFMMSizeInU32(modulus_size_in_bits: usize) -> usize {
     tee_big_int_size_in_u32(modulus_size_in_bits)
 }
 
-/// GP 1.1 兼容版本的 TEE_BigIntFMMSizeInU32 函数
-/// 
-/// 参数:
-/// - modulus_size_in_bits: 模数的位数 (uint32_t 类型)
-/// 
-/// 返回值:
-/// - u32: 所需的 u32 数量
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn __GP11_TEE_BigIntFMMSizeInU32(modulus_size_in_bits: u32) -> u32 {
-    TEE_BigIntFMMSizeInU32(modulus_size_in_bits as usize) as u32
-}
 
 /// 计算所需的 TEE_BigIntFMMContext 大小（以 u32 为单位）
 /// 
@@ -2075,22 +1936,11 @@ pub fn __GP11_TEE_BigIntFMMSizeInU32(modulus_size_in_bits: u32) -> u32 {
 /// - usize: 所需的 u32 数量
 #[allow(non_camel_case_types, non_snake_case)]
 pub fn TEE_BigIntFMMContextSizeInU32(modulus_size_in_bits: usize) -> usize {
-    // 根据原始C代码注释，返回大于0的值以使 malloc 等函数正常工作
+    // 返回大于0的值以使 malloc 等函数正常工作
     let _ = modulus_size_in_bits; // 未使用参数
     1
 }
 
-/// GP 1.1 兼容版本的 TEE_BigIntFMMContextSizeInU32 函数
-/// 
-/// 参数:
-/// - modulus_size_in_bits: 模数的位数 (uint32_t 类型)
-/// 
-/// 返回值:
-/// - u32: 所需的 u32 数量
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn __GP11_TEE_BigIntFMMContextSizeInU32(modulus_size_in_bits: u32) -> u32 {
-    TEE_BigIntFMMContextSizeInU32(modulus_size_in_bits as usize) as u32
-}
 
 /// 将 TEE_BigInt 转换为 TEE_BigIntFMM
 /// 
@@ -2106,7 +1956,7 @@ pub unsafe fn TEE_BigIntConvertToFMM(
     n: *const TEE_BigInt,
     context: *const TEE_BigIntFMMContext,
 ) {
-    // 根据原始C代码，调用 TEE_BigIntMod 函数
+    // 调用 TEE_BigIntMod 函数
     let _ = context; // 未使用的参数
     TEE_BigIntMod(dest as *mut TEE_BigInt, src, n);
 }
@@ -2125,7 +1975,6 @@ pub unsafe fn TEE_BigIntConvertFromFMM(
     n: *const TEE_BigInt,
     context: *const TEE_BigIntFMMContext,
 ) {
-    // 根据原始C代码的功能，这是在两个相同类型的变量之间进行复制
     // 因为 TEE_BigIntFMM 和 TEE_BigInt 都是 u32 类型别名，所以可以直接复制
     
     // 检查空指针
