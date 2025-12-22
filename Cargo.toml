@@ -4,3 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+#mbedtls = { path = "../rust-mbedtls/mbedtls" }
+#mbedtls-sys-auto = { path = "../rust-mbedtls/mbedtls-sys", package = "mbedtls-sys-auto" }
+
+mbedtls = { git = "ssh://git@gitee.com/wangzhen76/rust-mbedtls.git" }
+mbedtls-sys-auto = { git = "ssh://git@gitee.com/wangzhen76/rust-mbedtls.git", package = "mbedtls-sys-auto" }
+
+
+[lib]
+crate-type = ["cdylib", "rlib"]  # 同时生成动态库和静态库
+name = "rust_utee"
