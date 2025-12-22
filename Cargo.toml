@@ -7,8 +7,8 @@ edition = "2024"
 #mbedtls = { path = "../rust-mbedtls/mbedtls" }
 #mbedtls-sys-auto = { path = "../rust-mbedtls/mbedtls-sys", package = "mbedtls-sys-auto" }
 
-mbedtls = { git = "ssh://git@gitee.com/wangzhen76/rust-mbedtls.git" }
-mbedtls-sys-auto = { git = "ssh://git@gitee.com/wangzhen76/rust-mbedtls.git", package = "mbedtls-sys-auto" }
+mbedtls = { git = "https://gitee.com/openkylin/rust-mbedtls.git" }
+mbedtls-sys-auto = { git = "https://gitee.com/openkylin/rust-mbedtls.git", package = "mbedtls-sys-auto" }
 
 
 [lib]
