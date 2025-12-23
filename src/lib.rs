@@ -4,5 +4,12 @@
 //
 // This file has been modified by KylinSoft on 2025.
 
-pub mod tee_api_arith_mpi;
+#![allow(non_camel_case_types, non_snake_case)]
 
+pub mod tee_api_arith_mpi;
+pub mod tee_api_types;
+
+mod libc_compat {
+    pub type size_t = usize;
+    pub type intmax_t = i64;
+}
