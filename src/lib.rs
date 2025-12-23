@@ -7,6 +7,9 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
 pub mod tee_api_arith_mpi;
+pub mod tee_api_defines;
+pub mod tee_api_internel_client;
+pub mod tee_api_panic;
 pub mod tee_api_types;
 
 mod libc_compat {
