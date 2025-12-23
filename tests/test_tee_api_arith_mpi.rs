@@ -10,28 +10,26 @@
 
 use mbedtls::bignum::Mpi;
 use std::str::FromStr;
+use rust_utee::tee_api_types::{TEE_BigInt};
+use rust_utee::tee_api_defines::{TEE_SUCCESS};
 
 // 导入所有需要的 TEE BigInt 函数
 use rust_utee::tee_api_arith_mpi::*;
 
-// 重新定义测试中需要的类型和常量
-type TeeResult = u32;
-const TEE_SUCCESS: TeeResult = 0;
-// 删除未使用的常量和结构体
+
 
 #[test]
 fn test_tee_bigint_convert_from_s32() {
     let mut buffer = [0u32; 10];
     let big_int = buffer.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int, 10);
-        TEE_BigIntConvertFromS32(big_int, 12345);
-        
-        // 验证转换结果
-        let mpi = Mpi::from_teebigint(big_int as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 12345);
-    }
+    TEE_BigIntInit(big_int, 10);
+    TEE_BigIntConvertFromS32(big_int, 12345);
+    
+    // 验证转换结果
+    let mpi = unsafe{Mpi::from_teebigint(big_int as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 12345);
+
 }
 #[test]
 fn test_tee_bigint_octet_string_conversion() {
@@ -42,9 +40,7 @@ fn test_tee_bigint_octet_string_conversion() {
     assert_eq!(data.len(), 4);
     
     // 首先需要初始化BigInt
-    unsafe {
-        TEE_BigIntInit(big_int, 10);
-    }
+    TEE_BigIntInit(big_int, 10);
     
     let res = TEE_BigIntConvertFromOctetString(big_int, data.as_ptr(), data.len(), 1);
     // 应该期望成功而不是失败
@@ -65,23 +61,22 @@ fn test_tee_bigint_cmp() {
     let mut buffer2 = [0u32; 10];
     let big_int1 = buffer1.as_mut_ptr();
     let big_int2 = buffer2.as_mut_ptr();
-    
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntConvertFromS32(big_int1, 100);
-        TEE_BigIntConvertFromS32(big_int2, 200);
-        
 
-        assert!((big_int2 as usize).abs_diff(big_int1 as usize) >= 40); // 10 * size_of::<u32>()
-        
-        // 测试相同指针比较
-        let same_cmp = TEE_BigIntCmp(big_int1, big_int1);
-        assert_eq!(same_cmp, 0);
-        
-        let cmp = TEE_BigIntCmp(big_int1, big_int2);
-        assert_ne!(cmp, 0);
-    }
+
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntConvertFromS32(big_int1, 100);
+    TEE_BigIntConvertFromS32(big_int2, 200);
+
+    assert!((big_int2 as usize).abs_diff(big_int1 as usize) >= 40); // 10 * size_of::<u32>()
+
+    // 测试相同指针比较
+    let same_cmp = TEE_BigIntCmp(big_int1, big_int1);
+    assert_eq!(same_cmp, 0);
+
+    let cmp = TEE_BigIntCmp(big_int1, big_int2);
+    assert_ne!(cmp, 0);
+
 }
 //TEE_BigIntShiftRight(big_int2, big_int1, 3); // 128 >> 3 = 16
 #[test]
@@ -93,24 +88,23 @@ fn test_tee_bigint_shift_right() {
     let big_int2 = buffer2.as_mut_ptr();
     let big_int3 = buffer3.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntInit(big_int3, 10);
-        TEE_BigIntConvertFromS32(big_int1, 128);
-        TEE_BigIntConvertFromS32(big_int3, 16);
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntInit(big_int3, 10);
+    TEE_BigIntConvertFromS32(big_int1, 128);
+    TEE_BigIntConvertFromS32(big_int3, 16);
 
-        TEE_BigIntShiftRight(big_int2, big_int1, 3); // 128 >> 3 = 16
-        
-        // 验证移位结果
-        let mpi2 = Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap();
-        let val2 = mpi2.as_u32().unwrap();
-        assert_eq!(val2, 16);
-        
-        // 比较移位结果与期望值
-        let cmp = TEE_BigIntCmp(big_int3, big_int2);
-        assert_eq!(cmp, 0);
-    }
+    TEE_BigIntShiftRight(big_int2, big_int1, 3); // 128 >> 3 = 16
+    
+    // 验证移位结果
+    let mpi2 = unsafe{Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap()};
+    let val2 = mpi2.as_u32().unwrap();
+    assert_eq!(val2, 16);
+    
+    // 比较移位结果与期望值
+    let cmp = TEE_BigIntCmp(big_int3, big_int2);
+    assert_eq!(cmp, 0);
+
 }
 
 #[test]
@@ -118,21 +112,21 @@ fn test_tee_bigint_get_set_bit() {
     let mut buffer = [0u32; 10];
     let big_int = buffer.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int, 10);
-        TEE_BigIntConvertFromS32(big_int, 5); // 5 = 101 in binary
-        
-        assert_eq!(TEE_BigIntGetBit(big_int, 0), true);  // LSB
-        assert_eq!(TEE_BigIntGetBit(big_int, 1), false);
-        assert_eq!(TEE_BigIntGetBit(big_int, 2), true);
-        assert_eq!(TEE_BigIntGetBit(big_int, 3), false);
-        
-        // Set bit 3 to true (5 + 8 = 13)
-        assert_eq!(TEE_BigIntSetBit(big_int, 3, true), TEE_SUCCESS);
-        
-        let mpi = Mpi::from_teebigint(big_int as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 13);
-    }
+
+    TEE_BigIntInit(big_int, 10);
+    TEE_BigIntConvertFromS32(big_int, 5); // 5 = 101 in binary
+    
+    assert_eq!(TEE_BigIntGetBit(big_int, 0), true);  // LSB
+    assert_eq!(TEE_BigIntGetBit(big_int, 1), false);
+    assert_eq!(TEE_BigIntGetBit(big_int, 2), true);
+    assert_eq!(TEE_BigIntGetBit(big_int, 3), false);
+    
+    // Set bit 3 to true (5 + 8 = 13)
+    assert_eq!(TEE_BigIntSetBit(big_int, 3, true), TEE_SUCCESS);
+    
+    let mpi = unsafe{Mpi::from_teebigint(big_int as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 13);
+
 }
 
 #[test]
@@ -140,12 +134,12 @@ fn test_tee_bigint_get_bit_count() {
     let mut buffer = [0u32; 10];
     let big_int = buffer.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int, 10);
-        TEE_BigIntConvertFromS32(big_int, 127); // 127 = 1111111 in binary (7 bits)
-        
-        assert_eq!(TEE_BigIntGetBitCount(big_int), 7);
-    }
+
+    TEE_BigIntInit(big_int, 10);
+    TEE_BigIntConvertFromS32(big_int, 127); // 127 = 1111111 in binary (7 bits)
+    
+    assert_eq!(TEE_BigIntGetBitCount(big_int), 7);
+
 }
 
 #[test]
@@ -159,16 +153,16 @@ fn test_tee_bigint_assign() {
     // 确保两个指针之间有足够的距离
     assert!((big_int2 as usize).abs_diff(big_int1 as usize) >= 80); // 20 * size_of::<u32>() = 80
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 20);
-        TEE_BigIntInit(big_int2, 20);
-        TEE_BigIntConvertFromS32(big_int1, 42);
-        
-        assert_eq!(TEE_BigIntAssign(big_int2, big_int1), TEE_SUCCESS);
-        
-        let mpi = Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 42);
-    }
+
+    TEE_BigIntInit(big_int1, 20);
+    TEE_BigIntInit(big_int2, 20);
+    TEE_BigIntConvertFromS32(big_int1, 42);
+    
+    assert_eq!(TEE_BigIntAssign(big_int2, big_int1), TEE_SUCCESS);
+    
+    let mpi = unsafe{Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 42);
+
 }
 
 #[test]
@@ -179,16 +173,16 @@ fn test_tee_bigint_abs() {
     let big_int1 = buffer1.as_mut_ptr();
     let big_int2 = buffer2.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntConvertFromS32(big_int1, -42);
-        
-        assert_eq!(TEE_BigIntAbs(big_int2, big_int1), TEE_SUCCESS);
-        
-        let mpi = Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 42);
-    }
+
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntConvertFromS32(big_int1, -42);
+    
+    assert_eq!(TEE_BigIntAbs(big_int2, big_int1), TEE_SUCCESS);
+    
+    let mpi = unsafe{Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 42);
+
 }
 
 #[test]
@@ -199,18 +193,17 @@ fn test_tee_bigint_neg() {
     let big_int1 = buffer1.as_mut_ptr();
     let big_int2 = buffer2.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntConvertFromS32(big_int1, 42);
-        
-        TEE_BigIntNeg(big_int2, big_int1);
-        
-        // 需要正确检查负数结果
-        let mpi = Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap();
-        // 由于Mpi::as_u32不保留符号，我们只能确认数值部分
-        assert_eq!(mpi.as_u32().unwrap(), 42);
-    }
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntConvertFromS32(big_int1, 42);
+    
+    TEE_BigIntNeg(big_int2, big_int1);
+    
+    // 需要正确检查负数结果
+    let mpi = unsafe{Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap()};
+    // 由于Mpi::as_u32不保留符号，我们只能确认数值部分
+    assert_eq!(mpi.as_u32().unwrap(), 42);
+
 }
 
 #[test]
@@ -223,22 +216,21 @@ fn test_tee_bigint_add_sub() {
     let big_int2 = buffer2.as_mut_ptr();
     let big_int3 = buffer3.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntInit(big_int3, 10);
-        
-        TEE_BigIntConvertFromS32(big_int1, 100);
-        TEE_BigIntConvertFromS32(big_int2, 50);
-        
-        TEE_BigIntAdd(big_int3, big_int1, big_int2);
-        let mpi = Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 150);
-        
-        TEE_BigIntSub(big_int3, big_int1, big_int2);
-        let mpi = Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 50);
-    }
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntInit(big_int3, 10);
+    
+    TEE_BigIntConvertFromS32(big_int1, 100);
+    TEE_BigIntConvertFromS32(big_int2, 50);
+    
+    TEE_BigIntAdd(big_int3, big_int1, big_int2);
+    let mpi = unsafe{Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 150);
+    
+    TEE_BigIntSub(big_int3, big_int1, big_int2);
+    let mpi = unsafe{Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 50);
+
 }
 
 #[test]
@@ -251,18 +243,17 @@ fn test_tee_bigint_mul_div() {
     let big_int2 = buffer2.as_mut_ptr();
     let big_int3 = buffer3.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 20);
-        TEE_BigIntInit(big_int2, 20);
-        TEE_BigIntInit(big_int3, 20);
-        
-        TEE_BigIntConvertFromS32(big_int1, 25);
-        TEE_BigIntConvertFromS32(big_int2, 4);
-        
-        TEE_BigIntMul(big_int3, big_int1, big_int2);
-        let mpi = Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 100);
-    }
+    TEE_BigIntInit(big_int1, 20);
+    TEE_BigIntInit(big_int2, 20);
+    TEE_BigIntInit(big_int3, 20);
+    
+    TEE_BigIntConvertFromS32(big_int1, 25);
+    TEE_BigIntConvertFromS32(big_int2, 4);
+    
+    TEE_BigIntMul(big_int3, big_int1, big_int2);
+    let mpi = unsafe{Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 100);
+
 }
 
 #[test]
@@ -273,16 +264,15 @@ fn test_tee_bigint_square() {
     let big_int1 = buffer1.as_mut_ptr();
     let big_int2 = buffer2.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 20);
-        TEE_BigIntInit(big_int2, 20);
-        
-        TEE_BigIntConvertFromS32(big_int1, 12);
-        
-        TEE_BigIntSquare(big_int2, big_int1);
-        let mpi = Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 144); // 12*12
-    }
+    TEE_BigIntInit(big_int1, 20);
+    TEE_BigIntInit(big_int2, 20);
+    
+    TEE_BigIntConvertFromS32(big_int1, 12);
+    
+    TEE_BigIntSquare(big_int2, big_int1);
+    let mpi = unsafe{Mpi::from_teebigint(big_int2 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 144); // 12*12
+
 }
 
 #[test]
@@ -295,18 +285,17 @@ fn test_tee_bigint_mod() {
     let big_int2 = buffer2.as_mut_ptr();
     let big_int3 = buffer3.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntInit(big_int3, 10);
-        
-        TEE_BigIntConvertFromS32(big_int1, 100);
-        TEE_BigIntConvertFromS32(big_int2, 7);
-        
-        TEE_BigIntMod(big_int3, big_int1, big_int2);
-        let mpi = Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 2); // 100 % 7 = 2
-    }
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntInit(big_int3, 10);
+    
+    TEE_BigIntConvertFromS32(big_int1, 100);
+    TEE_BigIntConvertFromS32(big_int2, 7);
+    
+    TEE_BigIntMod(big_int3, big_int1, big_int2);
+    let mpi = unsafe{Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 2); // 100 % 7 = 2
+
 }
 
 #[test]
@@ -321,28 +310,27 @@ fn test_tee_bigint_mod_operations() {
     let big_int3 = buffer3.as_mut_ptr();
     let big_int4 = buffer4.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntInit(big_int3, 10);
-        TEE_BigIntInit(big_int4, 10);
-        
-        TEE_BigIntConvertFromS32(big_int1, 5);
-        TEE_BigIntConvertFromS32(big_int2, 3);
-        TEE_BigIntConvertFromS32(big_int3, 7); // modulus
-        
-        TEE_BigIntAddMod(big_int4, big_int1, big_int2, big_int3);
-        let mpi = Mpi::from_teebigint(big_int4 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 1); // (5+3) % 7 = 1
-        
-        TEE_BigIntSubMod(big_int4, big_int1, big_int2, big_int3);
-        let mpi = Mpi::from_teebigint(big_int4 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 2); // (5-3) % 7 = 2
-        
-        TEE_BigIntMulMod(big_int4, big_int1, big_int2, big_int3);
-        let mpi = Mpi::from_teebigint(big_int4 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 1); // (5*3) % 7 = 1
-    }
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntInit(big_int3, 10);
+    TEE_BigIntInit(big_int4, 10);
+    
+    TEE_BigIntConvertFromS32(big_int1, 5);
+    TEE_BigIntConvertFromS32(big_int2, 3);
+    TEE_BigIntConvertFromS32(big_int3, 7); // modulus
+    
+    TEE_BigIntAddMod(big_int4, big_int1, big_int2, big_int3);
+    let mpi = unsafe{Mpi::from_teebigint(big_int4 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 1); // (5+3) % 7 = 1
+    
+    TEE_BigIntSubMod(big_int4, big_int1, big_int2, big_int3);
+    let mpi = unsafe{Mpi::from_teebigint(big_int4 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 2); // (5-3) % 7 = 2
+    
+    TEE_BigIntMulMod(big_int4, big_int1, big_int2, big_int3);
+    let mpi = unsafe{Mpi::from_teebigint(big_int4 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 1); // (5*3) % 7 = 1
+
 }
 
 #[test]
@@ -355,18 +343,17 @@ fn test_tee_bigint_square_mod() {
     let big_int2 = buffer2.as_mut_ptr();
     let big_int3 = buffer3.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntInit(big_int3, 10);
-        
-        TEE_BigIntConvertFromS32(big_int1, 4);
-        TEE_BigIntConvertFromS32(big_int2, 7); // modulus
-        
-        TEE_BigIntSquareMod(big_int3, big_int1, big_int2);
-        let mpi = Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi.as_u32().unwrap(), 2); // (4*4) % 7 = 16 % 7 = 2
-    }
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntInit(big_int3, 10);
+    
+    TEE_BigIntConvertFromS32(big_int1, 4);
+    TEE_BigIntConvertFromS32(big_int2, 7); // modulus
+    
+    TEE_BigIntSquareMod(big_int3, big_int1, big_int2);
+    let mpi = unsafe{Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi.as_u32().unwrap(), 2); // (4*4) % 7 = 16 % 7 = 2
+
 }
 
 #[test]
@@ -379,19 +366,19 @@ fn test_tee_bigint_inv_mod() {
     let big_int2 = buffer2.as_mut_ptr();
     let big_int3 = buffer3.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        TEE_BigIntInit(big_int3, 10);
-        
-        TEE_BigIntConvertFromS32(big_int1, 3);
-        TEE_BigIntConvertFromS32(big_int2, 7); // modulus (prime)
-        
-        TEE_BigIntInvMod(big_int3, big_int1, big_int2);
-        let mpi = Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap();
-        // 3 * 5 = 15 ≡ 1 (mod 7), so inverse of 3 mod 7 is 5
-        assert_eq!(mpi.as_u32().unwrap(), 5);
-    }
+
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    TEE_BigIntInit(big_int3, 10);
+    
+    TEE_BigIntConvertFromS32(big_int1, 3);
+    TEE_BigIntConvertFromS32(big_int2, 7); // modulus (prime)
+    
+    TEE_BigIntInvMod(big_int3, big_int1, big_int2);
+    let mpi = unsafe{Mpi::from_teebigint(big_int3 as *const TEE_BigInt).unwrap()};
+    // 3 * 5 = 15 ≡ 1 (mod 7), so inverse of 3 mod 7 is 5
+    assert_eq!(mpi.as_u32().unwrap(), 5);
+
 }
 
 #[test]
@@ -407,23 +394,22 @@ fn test_tee_bigint_exp_mod() {
     let big_int3 = buffer3.as_mut_ptr();
     let big_int4 = buffer4.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 20);
-        TEE_BigIntInit(big_int2, 20);
-        TEE_BigIntInit(big_int3, 20);
-        TEE_BigIntInit(big_int4, 20);
-        
-        TEE_BigIntConvertFromS32(big_int1, 2); // base
-        TEE_BigIntConvertFromS32(big_int2, 3); // exponent
-        TEE_BigIntConvertFromS32(big_int3, 7); // modulus
-        
-        let res = TEE_BigIntExpMod(big_int4, big_int1, big_int2, big_int3, core::ptr::null());
-        assert_eq!(res, TEE_SUCCESS);
-        
-        let mpi = Mpi::from_teebigint(big_int4 as *const TEE_BigInt).unwrap();
-        // 2^3 mod 7 = 8 mod 7 = 1
-        assert_eq!(mpi.as_u32().unwrap(), 1);
-    }
+    TEE_BigIntInit(big_int1, 20);
+    TEE_BigIntInit(big_int2, 20);
+    TEE_BigIntInit(big_int3, 20);
+    TEE_BigIntInit(big_int4, 20);
+    
+    TEE_BigIntConvertFromS32(big_int1, 2); // base
+    TEE_BigIntConvertFromS32(big_int2, 3); // exponent
+    TEE_BigIntConvertFromS32(big_int3, 7); // modulus
+    
+    let res = TEE_BigIntExpMod(big_int4, big_int1, big_int2, big_int3, core::ptr::null());
+    assert_eq!(res, TEE_SUCCESS);
+    
+    let mpi = unsafe{Mpi::from_teebigint(big_int4 as *const TEE_BigInt).unwrap()};
+    // 2^3 mod 7 = 8 mod 7 = 1
+    assert_eq!(mpi.as_u32().unwrap(), 1);
+
 }
 
 #[test]
@@ -434,22 +420,22 @@ fn test_tee_bigint_relative_prime() {
     let big_int1 = buffer1.as_mut_ptr();
     let big_int2 = buffer2.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int1, 10);
-        TEE_BigIntInit(big_int2, 10);
-        
-        TEE_BigIntConvertFromS32(big_int1, 15);
-        TEE_BigIntConvertFromS32(big_int2, 28);
-        
-        // gcd(15, 28) = 1, so they are relatively prime
-        assert_eq!(TEE_BigIntRelativePrime(big_int1, big_int2), true);
-        
-        TEE_BigIntConvertFromS32(big_int1, 12);
-        TEE_BigIntConvertFromS32(big_int2, 18);
-        
-        // gcd(12, 18) = 6, so they are not relatively prime
-        assert_eq!(TEE_BigIntRelativePrime(big_int1, big_int2), false);
-    }
+
+    TEE_BigIntInit(big_int1, 10);
+    TEE_BigIntInit(big_int2, 10);
+    
+    TEE_BigIntConvertFromS32(big_int1, 15);
+    TEE_BigIntConvertFromS32(big_int2, 28);
+    
+    // gcd(15, 28) = 1, so they are relatively prime
+    assert_eq!(TEE_BigIntRelativePrime(big_int1, big_int2), true);
+    
+    TEE_BigIntConvertFromS32(big_int1, 12);
+    TEE_BigIntConvertFromS32(big_int2, 18);
+    
+    // gcd(12, 18) = 6, so they are not relatively prime
+    assert_eq!(TEE_BigIntRelativePrime(big_int1, big_int2), false);
+
 }
 
 #[test]
@@ -467,39 +453,37 @@ fn test_tee_bigint_compute_extended_gcd() {
     let op1 = buffer1.as_mut_ptr();
     let op2 = buffer2.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(gcd, 10);
-        TEE_BigIntInit(u, 10);
-        TEE_BigIntInit(v, 10);
-        TEE_BigIntInit(op1, 10);
-        TEE_BigIntInit(op2, 10);
-        
-        TEE_BigIntConvertFromS32(op1, 30);
-        TEE_BigIntConvertFromS32(op2, 18);
-        
-        TEE_BigIntComputeExtendedGcd(gcd, u, v, op1, op2);
-        
-        // Extended GCD: 30*u + 18*v = gcd(30, 18) = 6
-        // One solution: 30*(-1) + 18*2 = 6
-        let mpi_gcd = Mpi::from_teebigint(gcd as *const TEE_BigInt).unwrap();
-        assert_eq!(mpi_gcd.as_u32().unwrap(), 6);
-    }
+    TEE_BigIntInit(gcd, 10);
+    TEE_BigIntInit(u, 10);
+    TEE_BigIntInit(v, 10);
+    TEE_BigIntInit(op1, 10);
+    TEE_BigIntInit(op2, 10);
+    
+    TEE_BigIntConvertFromS32(op1, 30);
+    TEE_BigIntConvertFromS32(op2, 18);
+    
+    TEE_BigIntComputeExtendedGcd(gcd, u, v, op1, op2);
+    
+    // Extended GCD: 30*u + 18*v = gcd(30, 18) = 6
+    // One solution: 30*(-1) + 18*2 = 6
+    let mpi_gcd = unsafe{Mpi::from_teebigint(gcd as *const TEE_BigInt).unwrap()};
+    assert_eq!(mpi_gcd.as_u32().unwrap(), 6);
+
 }
 
 #[test]
 fn test_tee_bigint_is_probable_prime() {
     let mut buffer = [0u32; 20];
     let big_int = buffer.as_mut_ptr();
+
+    TEE_BigIntInit(big_int, 20);
+    TEE_BigIntConvertFromS32(big_int, 17); // 17 is prime
     
-    unsafe {
-        TEE_BigIntInit(big_int, 20);
-        TEE_BigIntConvertFromS32(big_int, 17); // 17 is prime
-        
-        assert_eq!(TEE_BigIntIsProbablePrime(big_int, 80), 1);
-        
-        TEE_BigIntConvertFromS32(big_int, 18); // 18 is not prime
-        assert_eq!(TEE_BigIntIsProbablePrime(big_int, 80), 0);
-    }
+    assert_eq!(TEE_BigIntIsProbablePrime(big_int, 80), 1);
+    
+    TEE_BigIntConvertFromS32(big_int, 18); // 18 is not prime
+    assert_eq!(TEE_BigIntIsProbablePrime(big_int, 80), 0);
+
 }
 
 #[test]
@@ -519,22 +503,21 @@ fn test_tee_bigint_mod_sqrt_related_operations() {
         let mut buffer = [0u32; 20];
         let bigint_ptr = buffer.as_mut_ptr();
         
-        unsafe {
-            TEE_BigIntInit(bigint_ptr, 20);
-            
-            // 转换到 TEE BigInt
-            match mpi.to_teebigint(bigint_ptr, 20) {
-                Ok(()) => println!("小数转换成功"),
-                Err(e) => println!("小数转换失败: {:?}", e),
-            }
-            
-            // 转换回来验证
-            let result_mpi = Mpi::from_teebigint(bigint_ptr as *const TEE_BigInt);
-            match result_mpi {
-                Ok(mpi_back) => println!("小数转回的值: {}", mpi_back),
-                Err(e) => println!("小数转回失败: {:?}", e),
-            }
+        TEE_BigIntInit(bigint_ptr, 20);
+        
+        // 转换到 TEE BigInt
+        match unsafe{mpi.to_teebigint(bigint_ptr, 20)} {
+            Ok(()) => println!("小数转换成功"),
+            Err(e) => println!("小数转换失败: {:?}", e),
         }
+        
+        // 转换回来验证
+        let result_mpi = unsafe{Mpi::from_teebigint(bigint_ptr as *const TEE_BigInt)};
+        match result_mpi {
+            Ok(mpi_back) => println!("小数转回的值: {}", mpi_back),
+            Err(e) => println!("小数转回失败: {:?}", e),
+        }
+
         
         // 测试大数值
         let large_value = "126474086260479574845714194337";
@@ -544,25 +527,24 @@ fn test_tee_bigint_mod_sqrt_related_operations() {
         let mut large_buffer = [0u32; 50];
         let large_bigint_ptr = large_buffer.as_mut_ptr();
         
-        unsafe {
-            TEE_BigIntInit(large_bigint_ptr, 50);
-            
-            // 转换到 TEE BigInt
-            match large_mpi.to_teebigint(large_bigint_ptr, 50) {
-                Ok(()) => println!("大数转换成功"),
-                Err(e) => println!("大数转换失败: {:?}", e),
-            }
-            
-            // 转换回来验证
-            let result_large_mpi = Mpi::from_teebigint(large_bigint_ptr as *const TEE_BigInt);
-            match result_large_mpi {
-                Ok(mpi_back) => {
-                    println!("大数转回的值: {}", mpi_back);
-                    println!("值是否相等: {}", mpi_back == large_mpi);
-                },
-                Err(e) => println!("大数转回失败: {:?}", e),
-            }
+        TEE_BigIntInit(large_bigint_ptr, 50);
+        
+        // 转换到 TEE BigInt
+        match unsafe{large_mpi.to_teebigint(large_bigint_ptr, 50)} {
+            Ok(()) => println!("大数转换成功"),
+            Err(e) => println!("大数转换失败: {:?}", e),
         }
+        
+        // 转换回来验证
+        let result_large_mpi = unsafe{Mpi::from_teebigint(large_bigint_ptr as *const TEE_BigInt)};
+        match result_large_mpi {
+            Ok(mpi_back) => {
+                println!("大数转回的值: {}", mpi_back);
+                println!("值是否相等: {}", mpi_back == large_mpi);
+            },
+            Err(e) => println!("大数转回失败: {:?}", e),
+        }
+
     }
     
     // 测试小数值：2, 7, 4 (其中 4^2 mod 7 = 2)
@@ -576,44 +558,43 @@ fn test_tee_bigint_mod_sqrt_related_operations() {
     let result = buffer_result.as_mut_ptr();
     let expected = buffer_expected.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(a, 10);
-        TEE_BigIntInit(n, 10);
-        TEE_BigIntInit(result, 10);
-        TEE_BigIntInit(expected, 10);
-        
-        // 测试 4^2 mod 7 = 2
-        TEE_BigIntConvertFromS32(a, 4);
-        TEE_BigIntConvertFromS32(n, 7);
-        TEE_BigIntSquareMod(result, a, n);
-        TEE_BigIntConvertFromS32(expected, 2);
-        
-        assert_eq!(TEE_BigIntCmp(result, expected), 0);
-        
-        // 测试 2^2 mod 17 = 4
-        TEE_BigIntConvertFromS32(a, 2);
-        TEE_BigIntConvertFromS32(n, 17);
-        TEE_BigIntSquareMod(result, a, n);
-        TEE_BigIntConvertFromS32(expected, 4);
-        
-        assert_eq!(TEE_BigIntCmp(result, expected), 0);
-        
-        // 测试 6^2 mod 17 = 2 (6 是 2 mod 17 的平方根之一)
-        TEE_BigIntConvertFromS32(a, 6);
-        TEE_BigIntConvertFromS32(n, 17);
-        TEE_BigIntSquareMod(result, a, n);
-        TEE_BigIntConvertFromS32(expected, 2);
-        
-        assert_eq!(TEE_BigIntCmp(result, expected), 0);
-        
-        // 测试 11^2 mod 17 = 2 (17-6=11，11^2=121，121 mod 17 = 2)
-        TEE_BigIntConvertFromS32(a, 11);
-        TEE_BigIntConvertFromS32(n, 17);
-        TEE_BigIntSquareMod(result, a, n);
-        TEE_BigIntConvertFromS32(expected, 2);
-        
-        assert_eq!(TEE_BigIntCmp(result, expected), 0);
-    }
+    TEE_BigIntInit(a, 10);
+    TEE_BigIntInit(n, 10);
+    TEE_BigIntInit(result, 10);
+    TEE_BigIntInit(expected, 10);
+    
+    // 测试 4^2 mod 7 = 2
+    TEE_BigIntConvertFromS32(a, 4);
+    TEE_BigIntConvertFromS32(n, 7);
+    TEE_BigIntSquareMod(result, a, n);
+    TEE_BigIntConvertFromS32(expected, 2);
+    
+    assert_eq!(TEE_BigIntCmp(result, expected), 0);
+    
+    // 测试 2^2 mod 17 = 4
+    TEE_BigIntConvertFromS32(a, 2);
+    TEE_BigIntConvertFromS32(n, 17);
+    TEE_BigIntSquareMod(result, a, n);
+    TEE_BigIntConvertFromS32(expected, 4);
+    
+    assert_eq!(TEE_BigIntCmp(result, expected), 0);
+    
+    // 测试 6^2 mod 17 = 2 (6 是 2 mod 17 的平方根之一)
+    TEE_BigIntConvertFromS32(a, 6);
+    TEE_BigIntConvertFromS32(n, 17);
+    TEE_BigIntSquareMod(result, a, n);
+    TEE_BigIntConvertFromS32(expected, 2);
+    
+    assert_eq!(TEE_BigIntCmp(result, expected), 0);
+    
+    // 测试 11^2 mod 17 = 2 (17-6=11，11^2=121，121 mod 17 = 2)
+    TEE_BigIntConvertFromS32(a, 11);
+    TEE_BigIntConvertFromS32(n, 17);
+    TEE_BigIntSquareMod(result, a, n);
+    TEE_BigIntConvertFromS32(expected, 2);
+    
+    assert_eq!(TEE_BigIntCmp(result, expected), 0);
+
     
     
     // 测试大数值：458050473005020050313790240477 mod 905858848829014223214249213947
@@ -627,35 +608,33 @@ fn test_tee_bigint_mod_sqrt_related_operations() {
     let result_large = buffer_result_large.as_mut_ptr();
     let expected_large = buffer_expected_large.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(a_large, 50);
-        TEE_BigIntInit(n_large, 50);
-        TEE_BigIntInit(result_large, 50);
-        TEE_BigIntInit(expected_large, 50);
-        
-        // 将十六进制字符串转换为 BigInt
-        // 这里我们使用模平方来验证平方根关系
-        let sqrt_hex = "126474086260479574845714194337";
-        let n_hex = "905858848829014223214249213947";
-        let expected_hex = "458050473005020050313790240477";
-        
-        // 首先将数值转换为 BigInt（使用字符串解析）
-        let sqrt_mpi = Mpi::from_str(sqrt_hex).unwrap();
-        let n_mpi = Mpi::from_str(n_hex).unwrap();
-        let expected_mpi = Mpi::from_str(expected_hex).unwrap();
-        
-        // 转换为 TEE BigInt
-        sqrt_mpi.to_teebigint(a_large, 50).unwrap();
-        n_mpi.to_teebigint(n_large, 50).unwrap();
-        expected_mpi.to_teebigint(expected_large, 50).unwrap();
-        
-        // 验证 sqrt^2 mod n = expected
-        TEE_BigIntSquareMod(result_large, a_large, n_large);
-        
-        let cmp_result = TEE_BigIntCmp(result_large, expected_large);
-        assert_eq!(cmp_result, 0, "Square mod operation failed: expected {} but got different", expected_hex);
-    }
+    TEE_BigIntInit(a_large, 50);
+    TEE_BigIntInit(n_large, 50);
+    TEE_BigIntInit(result_large, 50);
+    TEE_BigIntInit(expected_large, 50);
     
+    // 将十六进制字符串转换为 BigInt
+    // 这里我们使用模平方来验证平方根关系
+    let sqrt_hex = "126474086260479574845714194337";
+    let n_hex = "905858848829014223214249213947";
+    let expected_hex = "458050473005020050313790240477";
+    
+    // 首先将数值转换为 BigInt（使用字符串解析）
+    let sqrt_mpi = Mpi::from_str(sqrt_hex).unwrap();
+    let n_mpi = Mpi::from_str(n_hex).unwrap();
+    let expected_mpi = Mpi::from_str(expected_hex).unwrap();
+    
+    // 转换为 TEE BigInt
+    unsafe{sqrt_mpi.to_teebigint(a_large, 50).unwrap()};
+    unsafe{n_mpi.to_teebigint(n_large, 50).unwrap()};
+    unsafe{expected_mpi.to_teebigint(expected_large, 50).unwrap()};
+    
+    // 验证 sqrt^2 mod n = expected
+    TEE_BigIntSquareMod(result_large, a_large, n_large);
+    
+    let cmp_result = TEE_BigIntCmp(result_large, expected_large);
+    assert_eq!(cmp_result, 0, "Square mod operation failed: expected {} but got different", expected_hex);
+
 }
 
 #[test]
@@ -672,29 +651,29 @@ fn test_tee_bigint_mod_operations_extended() {
     let modulus = buffer_modulus.as_mut_ptr();
     let result = buffer_result.as_mut_ptr();
     let expected = buffer_expected.as_mut_ptr();
+
+
+    TEE_BigIntInit(base, 20);
+    TEE_BigIntInit(modulus, 20);
+    TEE_BigIntInit(result, 20);
+    TEE_BigIntInit(expected, 20);
     
-    unsafe {
-        TEE_BigIntInit(base, 20);
-        TEE_BigIntInit(modulus, 20);
-        TEE_BigIntInit(result, 20);
-        TEE_BigIntInit(expected, 20);
-        
-        // 测试 2^2 mod 13 = 4
-        TEE_BigIntConvertFromS32(base, 2);
-        TEE_BigIntConvertFromS32(modulus, 13);
-        TEE_BigIntConvertFromS32(expected, 4);
-        
-        TEE_BigIntSquareMod(result, base, modulus);
-        assert_eq!(TEE_BigIntCmp(result, expected), 0);
-        
-        // 测试 62^2 mod 113 = 2
-        TEE_BigIntConvertFromS32(base, 62);
-        TEE_BigIntConvertFromS32(modulus, 113);
-        TEE_BigIntConvertFromS32(expected, 2);
-        
-        TEE_BigIntSquareMod(result, base, modulus);
-        assert_eq!(TEE_BigIntCmp(result, expected), 0);
-    }
+    // 测试 2^2 mod 13 = 4
+    TEE_BigIntConvertFromS32(base, 2);
+    TEE_BigIntConvertFromS32(modulus, 13);
+    TEE_BigIntConvertFromS32(expected, 4);
+    
+    TEE_BigIntSquareMod(result, base, modulus);
+    assert_eq!(TEE_BigIntCmp(result, expected), 0);
+    
+    // 测试 62^2 mod 113 = 2
+    TEE_BigIntConvertFromS32(base, 62);
+    TEE_BigIntConvertFromS32(modulus, 113);
+    TEE_BigIntConvertFromS32(expected, 2);
+    
+    TEE_BigIntSquareMod(result, base, modulus);
+    assert_eq!(TEE_BigIntCmp(result, expected), 0);
+
 }
 
 #[test]
@@ -710,35 +689,34 @@ fn test_tee_bigint_fmm_functions() {
     let modulus = buffer_modulus.as_mut_ptr();
     let context = buffer_context.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInitFMM(fmm, 10);
-        TEE_BigIntInit(bigint, 10);
-        TEE_BigIntInit(modulus, 10);
-        TEE_BigIntInitFMMContext1(context, 10, modulus);
-        
-        // Test size functions
-        assert!(TEE_BigIntFMMSizeInU32(256) > 0);
-        assert!(TEE_BigIntFMMContextSizeInU32(256) > 0);
-    }
+
+    TEE_BigIntInitFMM(fmm, 10);
+    TEE_BigIntInit(bigint, 10);
+    TEE_BigIntInit(modulus, 10);
+    TEE_BigIntInitFMMContext1(context, 10, modulus);
+    
+    // Test size functions
+    assert!(TEE_BigIntFMMSizeInU32(256) > 0);
+    assert!(TEE_BigIntFMMContextSizeInU32(256) > 0);
+
 }
 
 fn test_is_prime(mpi: Mpi, expected: bool) {
     let mut buffer = [0u32; 64];
     let big_int = buffer.as_mut_ptr();
     
-    unsafe {
-        TEE_BigIntInit(big_int, 64);
-        mpi.to_teebigint(big_int, 64).unwrap();
-        
-        // 使用较低的安全级别进行测试，提高性能
-        let result = TEE_BigIntIsProbablePrime(big_int, 15);
-        
-        if expected {
-            assert_eq!(result, 1, "Expected number to be probably prime");
-        } else {
-            assert_eq!(result, 0, "Expected number to be composite");
-        }
+    TEE_BigIntInit(big_int, 64);
+    unsafe{mpi.to_teebigint(big_int, 64).unwrap()};
+    
+    // 使用较低的安全级别进行测试，提高性能
+    let result = TEE_BigIntIsProbablePrime(big_int, 15);
+    
+    if expected {
+        assert_eq!(result, 1, "Expected number to be probably prime");
+    } else {
+        assert_eq!(result, 0, "Expected number to be composite");
     }
+
 }
 
 #[test]

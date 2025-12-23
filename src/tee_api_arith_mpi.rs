@@ -12,9 +12,27 @@ use mbedtls::bignum::Mpi;
 use mbedtls::rng::RngCallback;
 use mbedtls::error::Error;
 pub use mbedtls_sys_auto::mpi_sint;
+use crate::tee_api_types::{TEE_BigInt, TEE_BigIntFMM, TEE_BigIntFMMContext,TEE_Result};
+use crate::tee_api_defines::{TEE_SUCCESS, TEE_ERROR_OVERFLOW};
+
 
 // 为了访问底层函数，我们需要导入正确的模块
 use mbedtls_sys_auto as mbedtls_sys;
+
+#[repr(C)]
+struct BigintHdr {
+    pub sign: i32,          // 对应 int32_t
+    pub alloc_size: u16,    // 对应 uint16_t
+    pub nblimbs: u16,       // 对应 uint16_t
+}
+
+pub const BIGINT_HDR_SIZE_IN_U32: usize = 2;
+
+// 示例定义（您需要根据实际情况调整这些值）
+const CFG_TA_BIGNUM_MAX_BITS: usize = 4096;
+//const MBEDTLS_MPI_MAX_LIMBS: usize = 128;
+
+
 
 /// TEE BigInt 扩展 trait
 pub trait TeeBigIntExt {
@@ -218,60 +236,27 @@ impl MpiExt for Mpi {
     }
 }
 
-#[allow(non_camel_case_types)]
-pub type TEE_BigInt = u32;
-#[allow(non_camel_case_types)]
-pub type TEE_BigIntFMM = u32;
-#[allow(non_camel_case_types)]
-pub type TEE_BigIntFMMContext = u32;
-
-
-#[repr(C)]
-struct BigintHdr {
-    pub sign: i32,          // 对应 int32_t
-    pub alloc_size: u16,    // 对应 uint16_t
-    pub nblimbs: u16,       // 对应 uint16_t
-}
-
-pub const BIGINT_HDR_SIZE_IN_U32: usize = 2;
-
-// 示例定义（您需要根据实际情况调整这些值）
-const CFG_TA_BIGNUM_MAX_BITS: usize = 4096;
-//const MBEDTLS_MPI_MAX_LIMBS: usize = 128;
-
-// 错误码定义示例
-type TeeResult = u32;
-const TEE_SUCCESS: TeeResult = 0;
-const TEE_ERROR_OVERFLOW: TeeResult = 1;
-//const TEE_ERROR_SHORT_BUFFER: TeeResult = 2;
-
 
 /// 初始化一个 TEE_BigInt 对象
 /// 
 /// 参数:
 /// - big_int: 指向 TEE_BigInt 的指针
 /// - len: 以 u32 为单位的长度
-#[allow(non_camel_case_types,non_snake_case)]
-pub unsafe fn TEE_BigIntInit(big_int: *mut TEE_BigInt, len: usize) {
-    // 检查长度是否超过限制（安全代码）
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntInit(big_int: *mut TEE_BigInt, len: usize) {
+    // 安全代码：参数检查和计算
     if len > CFG_TA_BIGNUM_MAX_BITS / 4 {
-        // PANIC 处理
         panic!("Too large bigint");
     }
-
-    // 计算头部信息（安全代码）
     let alloc_size = (len - BIGINT_HDR_SIZE_IN_U32) as u16;
 
-    // 内存操作（必须使用 unsafe）
+    // 必须的 unsafe：只有真正需要 unsafe 的操作放在这里
     unsafe {
-        // 将整个区域清零（使用字节而不是 u32）
         core::ptr::write_bytes(big_int as *mut u8, 0, len * 4);
-
-        // 设置头部信息
         let hdr = big_int as *mut BigintHdr;
-        (*hdr).sign = 1;  // 设置符号位为正数(1表示正数)
+        (*hdr).sign = 1;
         (*hdr).alloc_size = alloc_size;
-        (*hdr).nblimbs = 0;  // 初始时没有有效数据
+        (*hdr).nblimbs = 0;
     }
 }
 
@@ -285,14 +270,14 @@ pub unsafe fn TEE_BigIntInit(big_int: *mut TEE_BigInt, len: usize) {
 /// - sign: 符号值
 /// 
 /// 返回值:
-/// - TeeResult: 转换结果
-#[allow(non_camel_case_types,non_snake_case)]
-pub fn TEE_BigIntConvertFromOctetString(
+/// - TEE_Result: 转换结果
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntConvertFromOctetString(
     dest: *mut TEE_BigInt,
     buffer: *const u8,
     buffer_len: usize,
     sign: i32,
-) -> TeeResult {
+) -> TEE_Result {
     // 从二进制数据创建 MPI 对象
     let buffer_slice = unsafe { core::slice::from_raw_parts(buffer, buffer_len) };
     
@@ -344,13 +329,13 @@ pub fn TEE_BigIntConvertFromOctetString(
 /// - big_int: 源 TEE_BigInt 指针
 /// 
 /// 返回值:
-/// - TeeResult: 转换结果
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntConvertToOctetString(
+/// - TEE_Result: 转换结果
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntConvertToOctetString(
     buffer: *mut u8,
     buffer_len: *mut usize,
     big_int: *const TEE_BigInt,
-) -> TeeResult {
+) -> TEE_Result {
     // 检查输入参数
     if buffer_len.is_null() || big_int.is_null() {
         return TEE_ERROR_OVERFLOW; // 使用合适的错误码
@@ -407,8 +392,8 @@ pub fn TEE_BigIntConvertToOctetString(
 /// 参数:
 /// - dest: 目标 TEE_BigInt 指针
 /// - short_val: 源 32 位有符号整数
-#[allow(non_camel_case_types,non_snake_case)]
-pub fn TEE_BigIntConvertFromS32(dest: *mut TEE_BigInt, short_val: i32) {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntConvertFromS32(dest: *mut TEE_BigInt, short_val: i32) {
     unsafe {
         let hdr = dest as *mut BigintHdr;
         
@@ -451,9 +436,9 @@ pub fn TEE_BigIntConvertFromS32(dest: *mut TEE_BigInt, short_val: i32) {
 /// - src: 源 TEE_BigInt 指针
 /// 
 /// 返回值:
-/// - TeeResult: 转换结果
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntConvertToS32(dest: *mut i32, src: *const TEE_BigInt) -> TeeResult {
+/// - TEE_Result: 转换结果
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntConvertToS32(dest: *mut i32, src: *const TEE_BigInt) -> TEE_Result {
     // 从 TEE_BigInt 创建 MPI 对象，使用正确的方法
     let mpi = match unsafe { Mpi::from_teebigint(src) } {
         Ok(mpi) => mpi,
@@ -513,8 +498,8 @@ pub fn TEE_BigIntConvertToS32(dest: *mut i32, src: *const TEE_BigInt) -> TeeResu
 /// 
 /// 返回值:
 /// - i32: 比较结果 (-1, 0, 或 1)
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntCmp(op1: *const TEE_BigInt, op2: *const TEE_BigInt) -> i32 {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntCmp(op1: *const TEE_BigInt, op2: *const TEE_BigInt) -> i32 {
     // 从 TEE_BigInt 创建 MPI 对象，使用正确的方法
     let mpi1 = match unsafe { Mpi::from_teebigint(op1) } {
         Ok(mpi) => mpi,
@@ -542,8 +527,8 @@ pub fn TEE_BigIntCmp(op1: *const TEE_BigInt, op2: *const TEE_BigInt) -> i32 {
 /// 
 /// 返回值:
 /// - i32: 比较结果 (-1, 0, 或 1)
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntCmpS32(src: *const TEE_BigInt, short_val: i32) -> i32 {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntCmpS32(src: *const TEE_BigInt, short_val: i32) -> i32 {
     // 从 TEE_BigInt 创建 MPI 对象
     let mpi = match unsafe { Mpi::from_teebigint(src) } {
         Ok(mpi) => mpi,
@@ -570,8 +555,8 @@ pub fn TEE_BigIntCmpS32(src: *const TEE_BigInt, short_val: i32) -> i32 {
 /// - dest: 目标 TEE_BigInt 指针
 /// - op: 源 TEE_BigInt 指针
 /// - bits: 要右移的位数
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntShiftRight(dest: *mut TEE_BigInt, op: *const TEE_BigInt, bits: usize) {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntShiftRight(dest: *mut TEE_BigInt, op: *const TEE_BigInt, bits: usize) {
     // 创建临时 MPI 对象来处理移位操作
     let mut temp_mpi = match unsafe { Mpi::from_teebigint(op) } {
         Ok(mpi) => mpi,
@@ -619,8 +604,8 @@ pub fn TEE_BigIntShiftRight(dest: *mut TEE_BigInt, op: *const TEE_BigInt, bits: 
 /// 
 /// 返回值:
 /// - bool: 指定位的值
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntGetBit(src: *const TEE_BigInt, bit_index: u32) -> bool {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntGetBit(src: *const TEE_BigInt, bit_index: u32) -> bool {
     // 从 TEE_BigInt 创建 MPI 对象
     let mpi = match unsafe { Mpi::from_teebigint(src) } {
         Ok(mpi) => mpi,
@@ -638,8 +623,8 @@ pub fn TEE_BigIntGetBit(src: *const TEE_BigInt, bit_index: u32) -> bool {
 /// 
 /// 返回值:
 /// - u32: 位长度
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntGetBitCount(src: *const TEE_BigInt) -> u32 {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntGetBitCount(src: *const TEE_BigInt) -> u32 {
     // 从 TEE_BigInt 创建 MPI 对象
     let mpi = match unsafe { Mpi::from_teebigint(src) } {
         Ok(mpi) => mpi,
@@ -661,9 +646,9 @@ pub fn TEE_BigIntGetBitCount(src: *const TEE_BigInt) -> u32 {
 /// - value: 要设置的位值
 /// 
 /// 返回值:
-/// - TeeResult: 操作结果
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntSetBit(op: *mut TEE_BigInt, bit_index: u32, value: bool) -> TeeResult {
+/// - TEE_Result: 操作结果
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntSetBit(op: *mut TEE_BigInt, bit_index: u32, value: bool) -> TEE_Result {
     // 从 TEE_BigInt 创建 MPI 对象
     let mut mpi = match unsafe { Mpi::from_teebigint(op as *const TEE_BigInt) } {
         Ok(mpi) => mpi,
@@ -695,9 +680,9 @@ pub fn TEE_BigIntSetBit(op: *mut TEE_BigInt, bit_index: u32, value: bool) -> Tee
 /// - src: 源 TEE_BigInt 指针
 /// 
 /// 返回值:
-/// - TeeResult: 操作结果
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntAssign(dest: *mut TEE_BigInt, src: *const TEE_BigInt) -> TeeResult {
+/// - TEE_Result: 操作结果
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntAssign(dest: *mut TEE_BigInt, src: *const TEE_BigInt) -> TEE_Result {
     // 检查是否为同一对象
     if dest == src as *mut TEE_BigInt {
         return TEE_SUCCESS;
@@ -746,9 +731,9 @@ pub fn TEE_BigIntAssign(dest: *mut TEE_BigInt, src: *const TEE_BigInt) -> TeeRes
 /// - src: 源 TEE_BigInt 指针
 /// 
 /// 返回值:
-/// - TeeResult: 操作结果
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntAbs(dest: *mut TEE_BigInt, src: *const TEE_BigInt) -> TeeResult {
+/// - TEE_Result: 操作结果
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntAbs(dest: *mut TEE_BigInt, src: *const TEE_BigInt) -> TEE_Result {
     let res = TEE_BigIntAssign(dest, src);
     
     if res == TEE_SUCCESS {
@@ -768,13 +753,12 @@ pub fn TEE_BigIntAbs(dest: *mut TEE_BigInt, src: *const TEE_BigInt) -> TeeResult
 /// - op1: 第一个操作数 TEE_BigInt 指针
 /// - op2: 第二个操作数 TEE_BigInt 指针
 /// - func: 执行实际运算的函数
-#[allow(non_camel_case_types, non_snake_case, dead_code)]
 fn bigint_binary(
     dest: *mut TEE_BigInt,
     op1: *const TEE_BigInt,
     op2: *const TEE_BigInt,
     func: unsafe extern "C" fn(*mut mbedtls_sys_auto::mpi, *const mbedtls_sys_auto::mpi, *const mbedtls_sys_auto::mpi) -> i32,
-) -> TeeResult {
+) -> TEE_Result {
     unsafe {
         // 获取目标缓冲区信息
         let dst_hdr = dest as *mut BigintHdr;
@@ -857,14 +841,13 @@ fn bigint_binary(
 /// - op2: 第二个操作数 TEE_BigInt 指针
 /// - n: 模数 TEE_BigInt 指针
 /// - func: 执行实际运算的函数
-#[allow(non_camel_case_types, non_snake_case, dead_code)]
 fn bigint_binary_mod(
     dest: *mut TEE_BigInt,
     op1: *const TEE_BigInt,
     op2: *const TEE_BigInt,
     n: *const TEE_BigInt,
     func: unsafe extern "C" fn(*mut mbedtls_sys_auto::mpi, *const mbedtls_sys_auto::mpi, *const mbedtls_sys_auto::mpi) -> i32,
-) -> TeeResult {
+) -> TEE_Result {
     unsafe {
         // 检查模数是否有效（大于等于2）
         if TEE_BigIntCmpS32(n, 2) < 0 {
@@ -973,8 +956,8 @@ fn bigint_binary_mod(
 /// - dest: 目标 TEE_BigInt 指针
 /// - op1: 第一个操作数 TEE_BigInt 指针
 /// - op2: 第二个操作数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntAdd(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const TEE_BigInt) {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntAdd(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const TEE_BigInt) {
     let _ = bigint_binary(dest, op1, op2, mbedtls_sys_auto::mpi_add_mpi);
 }
 
@@ -984,8 +967,8 @@ pub fn TEE_BigIntAdd(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const 
 /// - dest: 目标 TEE_BigInt 指针
 /// - op1: 第一个操作数 TEE_BigInt 指针
 /// - op2: 第二个操作数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntSub(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const TEE_BigInt) {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntSub(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const TEE_BigInt) {
     let _ = bigint_binary(dest, op1, op2, mbedtls_sys_auto::mpi_sub_mpi);
 }
 
@@ -994,8 +977,8 @@ pub fn TEE_BigIntSub(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const 
 /// 参数:
 /// - dest: 目标 TEE_BigInt 指针
 /// - src: 源 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntNeg(dest: *mut TEE_BigInt, src: *const TEE_BigInt) {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntNeg(dest: *mut TEE_BigInt, src: *const TEE_BigInt) {
     unsafe {
         // 获取目标缓冲区信息
         let dst_hdr = dest as *mut BigintHdr;
@@ -1034,7 +1017,6 @@ pub fn TEE_BigIntNeg(dest: *mut TEE_BigInt, src: *const TEE_BigInt) {
 /// 
 /// 返回值:
 /// - usize: 所需的 u32 数量
-#[allow(non_camel_case_types, non_snake_case)]
 fn tee_big_int_size_in_u32(n: usize) -> usize {
     ((n + 31) / 32) + BIGINT_HDR_SIZE_IN_U32
 }
@@ -1045,35 +1027,33 @@ fn tee_big_int_size_in_u32(n: usize) -> usize {
 /// - dest: 目标 TE_BigInt 指针
 /// - op1: 第一个操作数 TEE_BigInt 指针
 /// - op2: 第二个操作数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntMul(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const TEE_BigInt) {
-    unsafe {
-        // 获取操作数的位数
-        let bs1 = TEE_BigIntGetBitCount(op1);
-        let bs2 = TEE_BigIntGetBitCount(op2);
-        
-        // 计算所需的空间大小
-        let s = tee_big_int_size_in_u32(bs1 as usize) + tee_big_int_size_in_u32(bs2 as usize);
-        
-        // 分配临时缓冲区
-        let mut tmp_storage = vec![0u32; s];
-        let tmp = tmp_storage.as_mut_ptr();
-        
-        // 初始化临时缓冲区
-        TEE_BigIntInit(tmp, s);
-        
-        // 执行乘法运算
-        let _ = bigint_binary(tmp, op1, op2, mbedtls_sys_auto::mpi_mul_mpi);
-        
-        // 将结果复制到目标
-        let zero_storage = [0u32; BIGINT_HDR_SIZE_IN_U32 + 1];
-        let zero = zero_storage.as_ptr();
-        TEE_BigIntInit(zero as *mut TEE_BigInt, BIGINT_HDR_SIZE_IN_U32 + 1);
-        
-        TEE_BigIntAdd(dest, tmp, zero);
-        
-        // tmp_storage 会自动释放
-    }
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntMul(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const TEE_BigInt) {
+    // 获取操作数的位数
+    let bs1 = TEE_BigIntGetBitCount(op1);
+    let bs2 = TEE_BigIntGetBitCount(op2);
+    
+    // 计算所需的空间大小
+    let s = tee_big_int_size_in_u32(bs1 as usize) + tee_big_int_size_in_u32(bs2 as usize);
+    
+    // 分配临时缓冲区
+    let mut tmp_storage = vec![0u32; s];
+    let tmp = tmp_storage.as_mut_ptr();
+    
+    // 初始化临时缓冲区
+    TEE_BigIntInit(tmp, s);
+    
+    // 执行乘法运算
+    let _ = bigint_binary(tmp, op1, op2, mbedtls_sys_auto::mpi_mul_mpi);
+    
+    // 将结果复制到目标
+    let zero_storage = [0u32; BIGINT_HDR_SIZE_IN_U32 + 1];
+    let zero = zero_storage.as_ptr();
+    TEE_BigIntInit(zero as *mut TEE_BigInt, BIGINT_HDR_SIZE_IN_U32 + 1);
+    
+    TEE_BigIntAdd(dest, tmp, zero);
+    
+    // tmp_storage 会自动释放
 }
 
 /// 计算 TEE_BigInt 的平方
@@ -1081,8 +1061,8 @@ pub fn TEE_BigIntMul(dest: *mut TEE_BigInt, op1: *const TEE_BigInt, op2: *const 
 /// 参数:
 /// - dest: 目标 TEE_BigInt 指针
 /// - op: 操作数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntSquare(dest: *mut TEE_BigInt, op: *const TEE_BigInt) {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntSquare(dest: *mut TEE_BigInt, op: *const TEE_BigInt) {
     // 平方就是自己乘以自己
     TEE_BigIntMul(dest, op, op);
 }
@@ -1094,8 +1074,8 @@ pub fn TEE_BigIntSquare(dest: *mut TEE_BigInt, op: *const TEE_BigInt) {
 /// - dest_r: 余数的目标 TEE_BigInt 指针（可为空）
 /// - op1: 被除数 TEE_BigInt 指针
 /// - op2: 除数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntDiv(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntDiv(
     dest_q: *mut TEE_BigInt,
     dest_r: *mut TEE_BigInt,
     op1: *const TEE_BigInt,
@@ -1203,8 +1183,8 @@ pub fn TEE_BigIntDiv(
 /// - dest: 目标 TEE_BigInt 指针
 /// - op: 操作数 TEE_BigInt 指针
 /// - n: 模数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntMod(dest: *mut TEE_BigInt, op: *const TEE_BigInt, n: *const TEE_BigInt) {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntMod(dest: *mut TEE_BigInt, op: *const TEE_BigInt, n: *const TEE_BigInt) {
     // 检查模数是否有效（大于等于2）
     if TEE_BigIntCmpS32(n, 2) < 0 {
         panic!("Modulus is too short");
@@ -1220,8 +1200,8 @@ pub fn TEE_BigIntMod(dest: *mut TEE_BigInt, op: *const TEE_BigInt, n: *const TEE
 /// - op1: 第一个操作数 TEE_BigInt 指针
 /// - op2: 第二个操作数 TEE_BigInt 指针
 /// - n: 模数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntAddMod(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntAddMod(
     dest: *mut TEE_BigInt, 
     op1: *const TEE_BigInt, 
     op2: *const TEE_BigInt, 
@@ -1237,8 +1217,8 @@ pub fn TEE_BigIntAddMod(
 /// - op1: 第一个操作数 TEE_BigInt 指针
 /// - op2: 第二个操作数 TEE_BigInt 指针
 /// - n: 模数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntSubMod(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntSubMod(
     dest: *mut TEE_BigInt, 
     op1: *const TEE_BigInt, 
     op2: *const TEE_BigInt, 
@@ -1254,8 +1234,8 @@ pub fn TEE_BigIntSubMod(
 /// - op1: 第一个操作数 TEE_BigInt 指针
 /// - op2: 第二个操作数 TEE_BigInt 指针
 /// - n: 模数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntMulMod(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntMulMod(
     dest: *mut TEE_BigInt, 
     op1: *const TEE_BigInt, 
     op2: *const TEE_BigInt, 
@@ -1270,8 +1250,8 @@ pub fn TEE_BigIntMulMod(
 /// - dest: 目标 TEE_BigInt 指针
 /// - op: 操作数 TEE_BigInt 指针
 /// - n: 模数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntSquareMod(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntSquareMod(
     dest: *mut TEE_BigInt, 
     op: *const TEE_BigInt, 
     n: *const TEE_BigInt
@@ -1286,8 +1266,8 @@ pub fn TEE_BigIntSquareMod(
 /// - dest: 目标 TEE_BigInt 指针
 /// - op: 操作数 TEE_BigInt 指针
 /// - n: 模数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntInvMod(dest: *mut TEE_BigInt, op: *const TEE_BigInt, n: *const TEE_BigInt) {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntInvMod(dest: *mut TEE_BigInt, op: *const TEE_BigInt, n: *const TEE_BigInt) {
     // 检查模数是否有效（大于等于2）以及操作数是否为零
     if TEE_BigIntCmpS32(n, 2) < 0 || TEE_BigIntCmpS32(op, 0) == 0 {
         panic!("too small modulus or trying to invert zero");
@@ -1348,7 +1328,6 @@ pub fn TEE_BigIntInvMod(dest: *mut TEE_BigInt, op: *const TEE_BigInt, n: *const 
 /// 
 /// 返回值:
 /// - bool: 如果是奇数返回true，否则返回false
-#[allow(non_camel_case_types, non_snake_case)]
 fn tee_bigint_is_odd(src: *const TEE_BigInt) -> bool {
     // 获取最低位的值来判断奇偶性
     TEE_BigIntGetBit(src, 0)
@@ -1361,7 +1340,6 @@ fn tee_bigint_is_odd(src: *const TEE_BigInt) -> bool {
 /// 
 /// 返回值:
 /// - bool: 如果是偶数返回true，否则返回false
-#[allow(non_camel_case_types, non_snake_case)]
 fn tee_bigint_is_even(src: *const TEE_BigInt) -> bool {
     !tee_bigint_is_odd(src)
 }
@@ -1376,15 +1354,15 @@ fn tee_bigint_is_even(src: *const TEE_BigInt) -> bool {
 /// - context: FMM 上下文指针（未使用）
 /// 
 /// 返回值:
-/// - TeeResult: 操作结果
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntExpMod(
+/// - TEE_Result: 操作结果
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntExpMod(
     dest: *mut TEE_BigInt,
     op1: *const TEE_BigInt,
     op2: *const TEE_BigInt,
     n: *const TEE_BigInt,
     _context: *const TEE_BigIntFMMContext,
-) -> TeeResult {
+) -> TEE_Result {
     // 检查模数是否有效（大于等于2）
     if TEE_BigIntCmpS32(n, 2) <= 0 {
         panic!("too small modulus");
@@ -1474,8 +1452,8 @@ pub fn TEE_BigIntExpMod(
 /// 
 /// 返回值:
 /// - bool: 如果互质返回true，否则返回false
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntRelativePrime(op1: *const TEE_BigInt, op2: *const TEE_BigInt) -> bool {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntRelativePrime(op1: *const TEE_BigInt, op2: *const TEE_BigInt) -> bool {
     unsafe {
         // 从第一个操作数创建 MPI 对象
         let mpi_op1 = match Mpi::from_teebigint(op1) {
@@ -1534,8 +1512,8 @@ pub fn TEE_BigIntRelativePrime(op1: *const TEE_BigInt, op2: *const TEE_BigInt) -
 /// - v: 系数v的目标 TEE_BigInt 指针（可为空）
 /// - op1: 第一个操作数 TEE_BigInt 指针
 /// - op2: 第二个操作数 TEE_BigInt 指针
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntComputeExtendedGcd(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntComputeExtendedGcd(
     gcd: *mut TEE_BigInt,
     u: *mut TEE_BigInt,
     v: *mut TEE_BigInt,
@@ -1683,7 +1661,6 @@ fn negate_mpi_safe(mpi: &Mpi) -> Mpi {
 /// 
 /// 返回值:
 /// - (gcd, a, b) 满足 ax + by = gcd(x,y)
-#[allow(non_camel_case_types, non_snake_case)]
 fn extended_gcd_algorithm(x: &Mpi, y: &Mpi) -> (Mpi, Mpi, Mpi) {
     // 安全检查
     if let (Ok(x_binary), Ok(y_binary)) = (x.to_binary(), y.to_binary()) {
@@ -1837,8 +1814,8 @@ fn mpi_is_odd(mpi: &Mpi) -> bool {
 /// 
 /// 返回值:
 /// - i32: 1表示可能是素数，0表示不是素数
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntIsProbablePrime(op: *const TEE_BigInt, confidenceLevel: u32) -> i32 {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntIsProbablePrime(op: *const TEE_BigInt, confidenceLevel: u32) -> i32 {
     // 检查输入参数
     if op.is_null() {
         return 0;
@@ -1890,11 +1867,9 @@ pub fn TEE_BigIntIsProbablePrime(op: *const TEE_BigInt, confidenceLevel: u32) ->
 /// 参数:
 /// - big_int_fmm: 指向 TEE_BigIntFMM 的指针
 /// - len: 以 u32 为单位的长度
-#[allow(non_camel_case_types, non_snake_case)]
-pub unsafe fn TEE_BigIntInitFMM(big_int_fmm: *mut TEE_BigIntFMM, len: usize) {
-    unsafe {
-        TEE_BigIntInit(big_int_fmm, len);
-    }
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntInitFMM(big_int_fmm: *mut TEE_BigIntFMM, len: usize) {
+    TEE_BigIntInit(big_int_fmm, len);
 }
 
 /// 初始化一个 TEE_BigIntFMMContext 对象 (带返回值版本)
@@ -1905,13 +1880,13 @@ pub unsafe fn TEE_BigIntInitFMM(big_int_fmm: *mut TEE_BigIntFMM, len: usize) {
 /// - modulus: 模数 TEE_BigInt 指针
 /// 
 /// 返回值:
-/// - TeeResult: 操作结果
-#[allow(non_camel_case_types, non_snake_case)]
-pub unsafe fn TEE_BigIntInitFMMContext1(
+/// - TEE_Result: 操作结果
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntInitFMMContext1(
     context: *mut TEE_BigIntFMMContext,
     len: usize,
     modulus: *const TEE_BigInt,
-) -> TeeResult {
+) -> TEE_Result {
     // 仅保留参数签名并返回成功
     let _ = context;
     let _ = len;
@@ -1926,8 +1901,8 @@ pub unsafe fn TEE_BigIntInitFMMContext1(
 /// 
 /// 返回值:
 /// - usize: 所需的 u32 数量
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntFMMSizeInU32(modulus_size_in_bits: usize) -> usize {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntFMMSizeInU32(modulus_size_in_bits: usize) -> usize {
     // 复用已有的 TEE_BigIntSizeInU32 函数逻辑
     tee_big_int_size_in_u32(modulus_size_in_bits)
 }
@@ -1940,8 +1915,8 @@ pub fn TEE_BigIntFMMSizeInU32(modulus_size_in_bits: usize) -> usize {
 /// 
 /// 返回值:
 /// - usize: 所需的 u32 数量
-#[allow(non_camel_case_types, non_snake_case)]
-pub fn TEE_BigIntFMMContextSizeInU32(modulus_size_in_bits: usize) -> usize {
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntFMMContextSizeInU32(modulus_size_in_bits: usize) -> usize {
     // 返回大于0的值以使 malloc 等函数正常工作
     let _ = modulus_size_in_bits; // 未使用参数
     1
@@ -1955,8 +1930,8 @@ pub fn TEE_BigIntFMMContextSizeInU32(modulus_size_in_bits: usize) -> usize {
 /// - src: 源 TEE_BigInt 指针
 /// - n: 模数 TEE_BigInt 指针
 /// - context: FMM 上下文指针（未使用）
-#[allow(non_camel_case_types, non_snake_case)]
-pub unsafe fn TEE_BigIntConvertToFMM(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntConvertToFMM(
     dest: *mut TEE_BigIntFMM,
     src: *const TEE_BigInt,
     n: *const TEE_BigInt,
@@ -1974,8 +1949,8 @@ pub unsafe fn TEE_BigIntConvertToFMM(
 /// - src: 源 TEE_BigIntFMM 指针
 /// - n: 模数 TEE_BigInt 指针（未使用）
 /// - context: FMM 上下文指针（未使用）
-#[allow(non_camel_case_types, non_snake_case)]
-pub unsafe fn TEE_BigIntConvertFromFMM(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntConvertFromFMM(
     dest: *mut TEE_BigInt,
     src: *const TEE_BigIntFMM,
     n: *const TEE_BigInt,
@@ -2014,8 +1989,8 @@ pub unsafe fn TEE_BigIntConvertFromFMM(
 /// - op2: 第二个操作数 TEE_BigIntFMM 指针
 /// - n: 模数 TEE_BigInt 指针
 /// - context: FMM 上下文指针（未使用）
-#[allow(non_camel_case_types, non_snake_case)]
-pub unsafe fn TEE_BigIntComputeFMM(
+#[unsafe(no_mangle)]
+pub extern "C" fn TEE_BigIntComputeFMM(
     dest: *mut TEE_BigIntFMM,
     op1: *const TEE_BigIntFMM,
     op2: *const TEE_BigIntFMM,
