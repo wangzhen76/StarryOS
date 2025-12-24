@@ -3,6 +3,9 @@ name = "rust-libutee"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+strict_annotation_checks = [] 
+
 [dependencies]
 #mbedtls = { path = "../rust-mbedtls/mbedtls" }
 #mbedtls-sys-auto = { path = "../rust-mbedtls/mbedtls-sys", package = "mbedtls-sys-auto" }
