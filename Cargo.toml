@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-strict_annotation_checks = [] 
+strict_annotation_checks = []
 
 [dependencies]
-#mbedtls = { path = "../rust-mbedtls/mbedtls" }
-#mbedtls-sys-auto = { path = "../rust-mbedtls/mbedtls-sys", package = "mbedtls-sys-auto" }
+# mbedtls = { path = "./rust-mbedtls/mbedtls", default-features = false, features = ["std"] }
+# mbedtls-sys-auto = { path = "./rust-mbedtls/mbedtls-sys", package = "mbedtls-sys-auto", default-features = false}
 
-mbedtls = { git = "https://gitee.com/openkylin/rust-mbedtls.git" }
-mbedtls-sys-auto = { git = "https://gitee.com/openkylin/rust-mbedtls.git", package = "mbedtls-sys-auto" }
+mbedtls = { git = "https://gitee.com/openkylin/rust-mbedtls.git", default-features = false, features = ["std"] }
+mbedtls-sys-auto = { git = "https://gitee.com/openkylin/rust-mbedtls.git", package = "mbedtls-sys-auto", default-features = false }
 
 
 [lib]

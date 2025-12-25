@@ -6,11 +6,17 @@
 
 #![allow(non_camel_case_types, non_snake_case)]
 
+pub mod api;
+pub mod syscalls;
 pub mod tee_api_arith_mpi;
 pub mod tee_api_defines;
 pub mod tee_api_mm;
 pub mod tee_api_panic;
 pub mod tee_api_types;
+pub mod trace;
+pub mod utee_types;
+#[macro_use]
+mod macros;
 
 mod libc_compat {
     pub type size_t = usize;
