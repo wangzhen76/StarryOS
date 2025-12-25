@@ -14,7 +14,7 @@ use rust_utee::tee_api_types::TEE_BigInt;
 use std::str::FromStr;
 
 // 导入所有需要的 TEE BigInt 函数
-use rust_utee::tee_api_arith_mpi::*;
+use rust_utee::api::tee_api_arith_mpi::*;
 
 #[test]
 fn test_tee_bigint_convert_from_s32() {

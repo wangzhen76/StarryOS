@@ -8,7 +8,6 @@
 
 pub mod api;
 pub mod syscalls;
-pub mod tee_api_arith_mpi;
 pub mod tee_api_defines;
 pub mod tee_api_mm;
 pub mod tee_api_panic;
