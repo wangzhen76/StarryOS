@@ -13,8 +13,6 @@ crate::define_utee_syscalls! {
 
 // arity 1
 crate::define_utee_syscalls! {
-    TEE_SCN_RETURN = 0 => fn _utee_return(ret: c_ulong);
-    TEE_SCN_PANIC = 2 => fn _utee_panic(code: c_ulong);
     TEE_SCN_CLOSE_TA_SESSION = 6 => fn _utee_close_ta_session(sess: c_ulong);
     TEE_SCN_GET_CANCELLATION_FLAG = 9 => fn _utee_get_cancellation_flag(cancel: *mut u32);
     TEE_SCN_UNMASK_CANCELLATION = 10 => fn _utee_unmask_cancellation(old_mask: *mut u32);
@@ -32,7 +30,6 @@ crate::define_utee_syscalls! {
 
 // arity 2
 crate::define_utee_syscalls! {
-    TEE_SCN_LOG = 1 => fn _utee_log(buf: *const c_void, len: size_t);
     TEE_SCN_GET_TIME = 13 => fn _utee_get_time(cat: c_ulong, time: *mut TEE_Time);
     TEE_SCN_CRYP_STATE_COPY = 16 => fn _utee_cryp_state_copy(dst: c_ulong, src: c_ulong);
     TEE_SCN_CRYP_OBJ_GET_INFO = 24 => fn _utee_cryp_obj_get_info(obj: c_ulong, info: *mut utee_object_info);
@@ -95,4 +92,34 @@ crate::define_utee_syscalls! {
 // arity 8
 crate::define_utee_syscalls! {
     TEE_SCN_STORAGE_OBJ_CREATE = 42 => fn _utee_storage_obj_create(storage_id: c_ulong, object_id: *const c_void, object_id_len: size_t, flags: c_ulong, attr: c_ulong, data: *const c_void, len: size_t, obj: *mut u32);
+}
+
+
+pub const TEE_SCN_RETURN: usize = 0;
+pub extern "C" fn _utee_return(ret: c_ulong) -> ! {
+    unsafe {
+        core::arch::asm!("svc #0", in("x8") TEE_SCN_RETURN + 500, in("x0") ret, options(nostack));
+        panic!("error");
+    }
+}
+
+pub const TEE_SCN_LOG: usize = 1;
+pub extern "C" fn _utee_log(buf: *const c_void, len: size_t) {
+   unsafe {
+        core::arch::asm!(
+            "svc #0",
+            in("x8") TEE_SCN_LOG + 500,
+            in("x0") buf,
+            in("x1") len,
+            options(nostack)
+        );
+    }
+}
+
+pub const TEE_SCN_PANIC: usize = 2;
+pub extern "C" fn _utee_panic(code: c_ulong){
+    unsafe {
+        core::arch::asm!("svc #0", in("x8") TEE_SCN_PANIC + 500, in("x0") code, options(nostack));
+        panic!("error");
+    }
 }
