@@ -9,8 +9,6 @@
 pub mod api;
 pub mod syscalls;
 pub mod tee_api_defines;
-pub mod tee_api_mm;
-pub mod tee_api_panic;
 pub mod tee_api_types;
 pub mod trace;
 pub mod utee_types;

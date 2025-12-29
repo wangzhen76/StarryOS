@@ -41,8 +41,8 @@ pub enum utee_cache_operation {
 
 #[repr(C)]
 pub struct utee_params {
-    types: u64,
-    vals: [u64; TEE_NUM_PARAMS as usize * 2],
+    pub types: u64,
+    pub vals: [u64; TEE_NUM_PARAMS as usize * 2],
 }
 
 #[repr(C)]

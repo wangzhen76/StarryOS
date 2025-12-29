@@ -1,4 +1,4 @@
-use rust_utee::api::cancel::{
+use rust_utee::api::tee_api_cancel::{
     TEE_GetCancellationFlag, TEE_MaskCancellation, TEE_UnmaskCancellation,
 };
 

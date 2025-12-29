@@ -462,3 +462,12 @@ pub fn TEE_PARAM_TYPES(t0: u32, t1: u32, t2: u32, t3: u32) -> u32 {
 }
 
 pub const TEE_NUM_PARAMS: u32 = 4;
+
+// Extract the type of a given parameter from paramTypes if you need more 
+// fine-grained type checking.
+pub fn TEE_PARAM_TYPE_GET(param_types: u32, index: u32) -> u32 {
+    if index >= 4 {
+        return 0;
+    }
+    (param_types >> (index * 4)) & 0xF
+}
