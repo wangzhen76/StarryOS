@@ -1,24 +1,11 @@
-use crate::{
-    syscalls::syscall_table::{
-        _utee_get_time, _utee_wait, _utee_set_ta_time,_utee_panic,
-    },
+use crate::api::tee_api_panic::TEE_Panic;
+use crate::syscalls::syscall_table::{_utee_get_time, _utee_set_ta_time, _utee_wait};
+use crate::tee_api_defines::{
+    TEE_ERROR_CANCEL, TEE_ERROR_OUT_OF_MEMORY, TEE_ERROR_OVERFLOW, TEE_ERROR_STORAGE_NO_SPACE,
+    TEE_ERROR_TIME_NEEDS_RESET, TEE_ERROR_TIME_NOT_SET, TEE_SUCCESS,
 };
-use crate::tee_api_defines::{TEE_ERROR_OVERFLOW,TEE_ERROR_TIME_NOT_SET,
-    TEE_ERROR_TIME_NEEDS_RESET,TEE_ERROR_OUT_OF_MEMORY,TEE_ERROR_CANCEL,
-    TEE_ERROR_STORAGE_NO_SPACE,TEE_SUCCESS};
-use crate::tee_api_types::{TEE_Result,TEE_Time};
+use crate::tee_api_types::{TEE_Result, TEE_Time};
 use crate::utee_types::utee_time_category;
-
-
-
-
-#[unsafe(no_mangle)]
-pub extern "C" fn TEE_Panic(panic_code: TEE_Result) {
-    unsafe {
-        _utee_panic(panic_code as u64);
-    }
-}
-
 
 #[unsafe(no_mangle)]
 pub extern "C" fn TEE_GetSystemTime(time: *mut TEE_Time) {
@@ -30,11 +17,11 @@ pub extern "C" fn TEE_GetSystemTime(time: *mut TEE_Time) {
     }
 }
 
-
 #[unsafe(no_mangle)]
 pub extern "C" fn TEE_GetTAPersistentTime(time: *mut TEE_Time) -> TEE_Result {
-    let res = unsafe { _utee_get_time(utee_time_category::UTEE_TIME_CAT_TA_PERSISTENT as u64, time) };
-    
+    let res =
+        unsafe { _utee_get_time(utee_time_category::UTEE_TIME_CAT_TA_PERSISTENT as u64, time) };
+
     // 如果结果不是成功且不是溢出错误，则将时间设置为0
     if res != TEE_ERROR_OVERFLOW as usize {
         unsafe {
@@ -42,19 +29,19 @@ pub extern "C" fn TEE_GetTAPersistentTime(time: *mut TEE_Time) -> TEE_Result {
             (*time).millis = 0;
         }
     }
-    
+
     // 检查是否需要panic
-    if res != TEE_SUCCESS as usize &&
-       res != TEE_ERROR_TIME_NOT_SET as usize &&
-       res != TEE_ERROR_TIME_NEEDS_RESET as usize &&
-       res != TEE_ERROR_OVERFLOW as usize &&
-       res != TEE_ERROR_OUT_OF_MEMORY as usize {
+    if res != TEE_SUCCESS as usize
+        && res != TEE_ERROR_TIME_NOT_SET as usize
+        && res != TEE_ERROR_TIME_NEEDS_RESET as usize
+        && res != TEE_ERROR_OVERFLOW as usize
+        && res != TEE_ERROR_OUT_OF_MEMORY as usize
+    {
         TEE_Panic(res as TEE_Result);
     }
-    
+
     res as TEE_Result
 }
-
 
 #[unsafe(no_mangle)]
 pub extern "C" fn TEE_GetREETime(time: *mut TEE_Time) {
@@ -64,7 +51,6 @@ pub extern "C" fn TEE_GetREETime(time: *mut TEE_Time) {
         TEE_Panic(res as TEE_Result);
     }
 }
-
 
 #[unsafe(no_mangle)]
 pub extern "C" fn TEE_Wait(timeout: u32) -> TEE_Result {
@@ -77,17 +63,16 @@ pub extern "C" fn TEE_Wait(timeout: u32) -> TEE_Result {
     res as TEE_Result
 }
 
-
 #[unsafe(no_mangle)]
 pub extern "C" fn TEE_SetTAPersistentTime(time: *const TEE_Time) -> TEE_Result {
     let res = unsafe { _utee_set_ta_time(time) };
 
-    if res != TEE_SUCCESS as usize &&
-       res != TEE_ERROR_OUT_OF_MEMORY as usize &&
-       res != TEE_ERROR_STORAGE_NO_SPACE as usize {
+    if res != TEE_SUCCESS as usize
+        && res != TEE_ERROR_OUT_OF_MEMORY as usize
+        && res != TEE_ERROR_STORAGE_NO_SPACE as usize
+    {
         TEE_Panic(res as TEE_Result);
     }
 
     res as TEE_Result
 }
-

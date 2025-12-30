@@ -1,5 +1,5 @@
 use crate::{
-    api::tee_api_time::TEE_Panic,
+    api::tee_api_panic::TEE_Panic,
     syscalls::syscall_table::{
         _utee_get_cancellation_flag, _utee_mask_cancellation, _utee_unmask_cancellation,
     },
