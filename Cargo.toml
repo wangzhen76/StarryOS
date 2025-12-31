@@ -5,6 +5,10 @@ edition = "2024"
 
 [features]
 strict_annotation_checks = []
+trace-error= []
+trace-flow = []
+trace-info = []
+trace-debug = []
 
 [dependencies]
 # mbedtls = { path = "./rust-mbedtls/mbedtls", default-features = false, features = ["std"] }
@@ -12,6 +16,7 @@ strict_annotation_checks = []
 
 mbedtls = { git = "https://gitee.com/openkylin/rust-mbedtls.git", default-features = false, features = ["std"] }
 mbedtls-sys-auto = { git = "https://gitee.com/openkylin/rust-mbedtls.git", package = "mbedtls-sys-auto", default-features = false }
+libc = "0.2"
 
 
 [lib]

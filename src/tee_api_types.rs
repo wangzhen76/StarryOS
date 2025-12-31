@@ -8,6 +8,7 @@
 
 use crate::libc_compat::size_t;
 use core::ffi::*;
+use core::fmt::{Display, Formatter, Result};
 
 #[allow(non_camel_case_types)]
 pub type TEE_Result = u32;
@@ -20,6 +21,26 @@ pub struct TEE_UUID {
     pub timeHiAndVersion: u16,
     pub clockSeqAndNode: [u8; 8],
 }
+ impl Display for TEE_UUID {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(
+            f,
+            "{:08x}-{:04x}-{:04x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+            self.timeLow,
+            self.timeMid,
+            self.timeHiAndVersion,
+            self.clockSeqAndNode[0],
+            self.clockSeqAndNode[1],
+            self.clockSeqAndNode[2],
+            self.clockSeqAndNode[3],
+            self.clockSeqAndNode[4],
+            self.clockSeqAndNode[5],
+            self.clockSeqAndNode[6],
+            self.clockSeqAndNode[7]
+        )
+    }
+}
+
 
 #[derive(Copy, Clone)]
 #[repr(C)]

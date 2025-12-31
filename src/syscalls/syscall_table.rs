@@ -94,7 +94,6 @@ crate::define_utee_syscalls! {
     TEE_SCN_STORAGE_OBJ_CREATE = 42 => fn _utee_storage_obj_create(storage_id: c_ulong, object_id: *const c_void, object_id_len: size_t, flags: c_ulong, attr: c_ulong, data: *const c_void, len: size_t, obj: *mut u32);
 }
 
-
 pub const TEE_SCN_RETURN: usize = 0;
 pub extern "C" fn _utee_return(ret: c_ulong) -> ! {
     unsafe {
@@ -105,7 +104,7 @@ pub extern "C" fn _utee_return(ret: c_ulong) -> ! {
 
 pub const TEE_SCN_LOG: usize = 1;
 pub extern "C" fn _utee_log(buf: *const c_void, len: size_t) {
-   unsafe {
+    unsafe {
         core::arch::asm!(
             "svc #0",
             in("x8") TEE_SCN_LOG + 500,
@@ -117,7 +116,7 @@ pub extern "C" fn _utee_log(buf: *const c_void, len: size_t) {
 }
 
 pub const TEE_SCN_PANIC: usize = 2;
-pub extern "C" fn _utee_panic(code: c_ulong){
+pub extern "C" fn _utee_panic(code: c_ulong) {
     unsafe {
         core::arch::asm!("svc #0", in("x8") TEE_SCN_PANIC + 500, in("x0") code, options(nostack));
         panic!("error");

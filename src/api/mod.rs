@@ -5,3 +5,5 @@ pub mod tee_api_internal_client;
 pub mod tee_api_mm;
 pub mod tee_api_panic;
 pub mod tee_api_time;
+pub mod tee_api_property;
+pub mod user_ta_headers;
