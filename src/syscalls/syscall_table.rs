@@ -49,6 +49,7 @@ crate::define_utee_syscalls! {
     TEE_SCN_CRYP_OBJ_ALLOC = 27 => fn _utee_cryp_obj_alloc(ttype: c_ulong, max_size: c_ulong, obj: *mut u32);
     TEE_SCN_CRYP_OBJ_POPULATE = 30 => fn _utee_cryp_obj_populate(obj: c_ulong, attrs: *mut utee_attribute, attr_count: c_ulong);
     TEE_SCN_AUTHENC_UPDATE_AAD = 35 => fn _utee_authenc_update_aad(state: c_ulong, aad_data: *const c_void, aad_data_len: size_t);
+    TEE_SCN_STORAGE_OBJ_RENAME = 44 => fn _utee_storage_obj_rename(obj: c_ulong, new_obj_id: *const c_void, new_obj_id_len: size_t);
     TEE_SCN_STORAGE_OBJ_WRITE = 51 => fn _utee_storage_obj_write(obj: c_ulong, data: *const c_void, len: size_t);
     TEE_SCN_STORAGE_OBJ_SEEK = 53 => fn _utee_storage_obj_seek(obj: c_ulong, offset: i32, whence: c_ulong);
     TEE_SCN_CACHE_OPERATION = 70 => fn _utee_cache_operation(va: *mut c_void, l: size_t, op: c_ulong);
