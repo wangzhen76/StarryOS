@@ -7,3 +7,4 @@ pub mod tee_api_panic;
 pub mod tee_api_time;
 pub mod tee_api_property;
 pub mod user_ta_headers;
+pub mod tee_api_objects;

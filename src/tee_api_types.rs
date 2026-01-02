@@ -123,6 +123,7 @@ pub struct TEE_ObjectInfo {
 
 // Reserve the GP 1.1.1 type
 #[repr(C)]
+#[derive(Copy, Clone)]
 pub enum TEE_Whence {
     TEE_DATA_SEEK_SET,
     TEE_DATA_SEEK_CUR,

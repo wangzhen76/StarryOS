@@ -46,19 +46,21 @@ pub struct utee_params {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone, Default)]
 pub struct utee_attribute {
-    a: u64,
-    b: u64,
-    attribute_id: u32,
+    pub a: u64,
+    pub b: u64,
+    pub attribute_id: u32,
 }
 
 #[repr(C)]
+#[derive(Copy, Clone, Default)]
 pub struct utee_object_info {
-    obj_type: u32,
-    obj_size: u32,
-    max_obj_size: u32,
-    obj_usage: u32,
-    data_size: u32,
-    data_pos: u32,
-    handle_flags: u32,
+    pub obj_type: u32,
+    pub obj_size: u32,
+    pub max_obj_size: u32,
+    pub obj_usage: u32,
+    pub data_size: u32,
+    pub data_pos: u32,
+    pub handle_flags: u32,
 }
