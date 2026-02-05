@@ -58,12 +58,14 @@ use super::{
         bb_alloc, bb_free, copy_from_user, copy_from_user_struct, copy_from_user_u64, copy_to_user,
         copy_to_user_struct, copy_to_user_u64,
     },
-    user_mode_ctx_struct::user_mode_ctx,
     user_ta::user_ta_ctx,
     utils::{bit, bit32, slice_fmt},
     vm::vm_check_access_rights,
 };
-use crate::{mm::vm_load_string, tee, tee::libmbedtls::bignum::BigNum};
+use crate::{
+    mm::vm_load_string,
+    tee::{self, crypto::crypto::rsa_public_key, libmbedtls::bignum::BigNum},
+};
 
 pub const TEE_TYPE_ATTR_OPTIONAL: u32 = bit(0);
 pub const TEE_TYPE_ATTR_REQUIRED: u32 = bit(1);
@@ -337,6 +339,7 @@ pub trait tee_crypto_ops {
 /// 对应类型 TEE_TYPE_*
 pub enum TeeCryptObj {
     rsa_keypair(rsa_keypair),
+    rsa_public_key(rsa_public_key),
     ecc_keypair(ecc_keypair),
     ecc_public_key(ecc_public_key),
     obj_secret(tee_cryp_obj_secret_wrapper),
@@ -349,6 +352,7 @@ impl Debug for TeeCryptObj {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TeeCryptObj::rsa_keypair(key) => write!(f, "TeeCryptObj::rsa_keypair:{:#?}", key),
+            TeeCryptObj::rsa_public_key(_) => write!(f, "TeeCryptObj::rsa_public_key"),
             TeeCryptObj::ecc_keypair(keypair) => {
                 write!(f, "TeeCryptObj::ecc_keypair:{:#?}", keypair)
             }
@@ -382,6 +386,9 @@ impl tee_crypto_ops for TeeCryptObj {
         match key_type {
             TEE_TYPE_RSA_KEYPAIR => {
                 rsa_keypair::new(key_type, key_size_bits).map(TeeCryptObj::rsa_keypair)
+            }
+            TEE_TYPE_RSA_PUBLIC_KEY => {
+                rsa_public_key::new(key_type, key_size_bits).map(TeeCryptObj::rsa_public_key)
             }
             TEE_TYPE_ECDSA_PUBLIC_KEY
             | TEE_TYPE_ECDH_PUBLIC_KEY
@@ -427,6 +434,7 @@ impl tee_crypto_ops for TeeCryptObj {
     fn get_attr_by_id(&mut self, attr_id: c_ulong) -> TeeResult<CryptoAttrRef<'_>> {
         match self {
             TeeCryptObj::rsa_keypair(key) => key.get_attr_by_id(attr_id),
+            TeeCryptObj::rsa_public_key(key) => key.get_attr_by_id(attr_id),
             TeeCryptObj::ecc_public_key(key) => key.get_attr_by_id(attr_id),
             TeeCryptObj::ecc_keypair(keypair) => keypair.get_attr_by_id(attr_id),
             TeeCryptObj::obj_secret(secret) => secret.get_attr_by_id(attr_id),
@@ -2153,7 +2161,6 @@ fn copy_in_attrs(
             // TODO: need to implement vm_check_access_rights
             buf = memtag_strip_tag_vaddr(buf as *const c_void) as u64;
             vm_check_access_rights(
-                &mut user_mode_ctx::default(),
                 flags,
                 buf as usize,
                 len as usize,
